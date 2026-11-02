@@ -616,7 +616,7 @@ export default function App() {
                   return (
                     <div
                       key={niche.id}
-                      onClick={() => setSelectedNicheKey(niche.id)}
+                      onClick={() => setSelectedNicheKey(niche.id as keyof typeof NICHES ) }
                       className={`relative cursor-pointer rounded-2xl p-6 transition-all duration-300 flex flex-col justify-between ${
                         isSelected
                           ? 'bg-[#111827] border-2 border-[#10B981] shadow-xl shadow-emerald-500/15 scale-102'
