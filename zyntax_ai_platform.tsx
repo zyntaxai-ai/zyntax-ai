@@ -268,7 +268,7 @@ export default function App() {
 
   // Audio waveform animation tick
   useEffect(() => {
-    let interval;
+    let interval : ReturnType<typeof setInterval> | undefined ;
     if (isPlayingAudio) {
       interval = setInterval(() => {
         setAudioProgress((prev) => (prev >= 100 ? 0 : prev + 2));
