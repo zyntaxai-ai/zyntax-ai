@@ -242,7 +242,7 @@ const NICHES = {
 export default function App() {
   // Global Stepper State: 'landing' (Step 1) | 'onboarding' (Step 2) | 'dashboard' (Step 3) | 'workflows' (Step 4)
   const [currentStep, setCurrentStep] = useState('landing');
-  const [selectedNicheKey, setSelectedNicheKey] = useState('dental');
+  const [selectedNicheKey , setSelectedNicheKey ] = useState<keyof typeof NICHES>('dental') ;
   
   // Audio Player State Simulator
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
