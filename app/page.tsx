@@ -33,7 +33,9 @@ import {
   Mail,
   Lock,
   User,
-  LogOut
+  LogOut,
+  Loader2,
+  Link as LinkIcon
 } from "lucide-react";
 
 type StepType = "landing" | "onboarding" | "dashboard" | "workflows";
@@ -47,6 +49,8 @@ interface CallLog {
   phone: string;
   time: string;
   intent: string;
+  aiReply: string;
+  smsSent: string;
   status: "Booked" | "Follow-up Sent";
 }
 
@@ -56,6 +60,8 @@ interface TenantProfile {
   phoneLine: string;
   avgTicket: number;
   currency: string;
+  defaultGreeting: string;
+  defaultSms: string;
 }
 
 const NICHE_CONFIGS: Record<NicheType, TenantProfile> = {
@@ -64,21 +70,33 @@ const NICHE_CONFIGS: Record<NicheType, TenantProfile> = {
     niche: "dental",
     phoneLine: "+1 (512) 000-0101",
     avgTicket: 250,
-    currency: "$"
+    currency: "$",
+    defaultGreeting:
+      "Thank you for calling our Dental Clinic. I can help you schedule an appointment or emergency visit right away—what day works best for you?",
+    defaultSms:
+      "Your dental appointment slot is reserved! Reply CONFIRM or manage your booking via our calendar link."
   },
   realestate: {
     name: "Real Estate Workspace",
     niche: "realestate",
     phoneLine: "+1 (512) 000-0202",
     avgTicket: 5000,
-    currency: "$"
+    currency: "$",
+    defaultGreeting:
+      "Hello! Thanks for reaching out about our property listings. Would you like to schedule a private tour or get full property details?",
+    defaultSms:
+      "Thanks for inquiring! Your property tour request is logged. Here is the direct scheduling link for your private showing."
   },
   consulting: {
     name: "Consulting Workspace",
     niche: "consulting",
     phoneLine: "+1 (512) 000-0303",
     avgTicket: 1500,
-    currency: "$"
+    currency: "$",
+    defaultGreeting:
+      "Welcome to our Advisory Desk. I can qualify your project requirements and book a 1-on-1 discovery call with a senior partner.",
+    defaultSms:
+      "Your discovery call has been scheduled. Check your inbox and this link for the meeting agenda."
   }
 };
 
@@ -89,7 +107,8 @@ const VOICE_PROFILES = [
     tone: "Warm & Empathetic",
     accent: "US English",
     latency: "380ms",
-    sampleLine: "Good morning! Thanks for calling. I can help you schedule your visit right away—what day works best for you?"
+    sampleLine:
+      "Good morning! Thanks for calling. I can help you schedule your visit right away—what day works best for you?"
   },
   {
     id: "marcus",
@@ -97,7 +116,8 @@ const VOICE_PROFILES = [
     tone: "Executive & Direct",
     accent: "US / Neutral",
     latency: "410ms",
-    sampleLine: "Hello, you've reached the front desk. Tell me a bit about what you're looking for and I'll match you with an advisor."
+    sampleLine:
+      "Hello, you've reached the front desk. Tell me a bit about what you're looking for and I'll match you with an advisor."
   },
   {
     id: "nova",
@@ -105,7 +125,8 @@ const VOICE_PROFILES = [
     tone: "Energetic & Fast",
     accent: "UK / Global",
     latency: "360ms",
-    sampleLine: "Hi there! Sorry we missed your call. Let's get your slot locked in so you don't have to wait on hold."
+    sampleLine:
+      "Hi there! Sorry we missed your call. Let's get your slot locked in so you don't have to wait on hold."
   }
 ];
 
@@ -121,14 +142,24 @@ export default function ZyntaxApp() {
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
   const [userPassword, setUserPassword] = useState("");
-  const [authenticatedUser, setAuthenticatedUser] = useState<{ name: string; email: string; provider: string } | null>(
-    null
-  );
+  const [authenticatedUser, setAuthenticatedUser] = useState<{
+    name: string;
+    email: string;
+    provider: string;
+  } | null>(null);
 
   // Voice Engine Interactive State
   const [selectedVoiceId, setSelectedVoiceId] = useState("aria");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isPlayingEngineSample, setIsPlayingEngineSample] = useState(false);
+
+  // Editable Workflow Pipeline State (Connected to /api/workflows)
+  const [pickupTrigger, setPickupTrigger] = useState("Instant (0s Missed-Call Intercept)");
+  const [greetingPrompt, setGreetingPrompt] = useState(NICHE_CONFIGS.dental.defaultGreeting);
+  const [smsTemplate, setSmsTemplate] = useState(NICHE_CONFIGS.dental.defaultSms);
+  const [calendarLink, setCalendarLink] = useState("https://cal.com/zyntax-booking");
+  const [isSavingWorkflow, setIsSavingWorkflow] = useState(false);
+  const [workflowSaveStatus, setWorkflowSaveStatus] = useState<string | null>(null);
 
   // Dashboard State
   const [isLiveTakeover, setIsLiveTakeover] = useState(false);
@@ -141,6 +172,13 @@ export default function ZyntaxApp() {
   const tenant = NICHE_CONFIGS[selectedNiche];
   const recoveredRevenue = bookingsCount * tenant.avgTicket;
   const activeVoiceProfile = VOICE_PROFILES.find((v) => v.id === selectedVoiceId) || VOICE_PROFILES[0];
+
+  const handleSelectNiche = (niche: NicheType) => {
+    setSelectedNiche(niche);
+    setGreetingPrompt(NICHE_CONFIGS[niche].defaultGreeting);
+    setSmsTemplate(NICHE_CONFIGS[niche].defaultSms);
+    setWorkflowSaveStatus(null);
+  };
 
   const openAuth = (mode: AuthMode) => {
     setAuthMode(mode);
@@ -174,6 +212,36 @@ export default function ZyntaxApp() {
     setCurrentStep("landing");
   };
 
+  // Real API call to app/api/workflows/route.ts
+  const handleSaveWorkflow = async () => {
+    setIsSavingWorkflow(true);
+    setWorkflowSaveStatus(null);
+    try {
+      const res = await fetch("/api/workflows", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          niche: selectedNiche,
+          voiceModel: activeVoiceProfile.name,
+          greetingPrompt,
+          smsTemplate,
+          calendarLink
+        })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setWorkflowSaveStatus("Pipeline Synced to Backend ✓");
+      } else {
+        setWorkflowSaveStatus(data.error || "Failed to sync workflow");
+      }
+    } catch {
+      setWorkflowSaveStatus("Network error while saving workflow");
+    } finally {
+      setIsSavingWorkflow(false);
+    }
+  };
+
   const triggerCallSimulation = () => {
     if (simulatedCallActive) return;
     setSimulatedCallActive(true);
@@ -193,12 +261,14 @@ export default function ZyntaxApp() {
             : selectedNiche === "realestate"
             ? "Property Tour Request"
             : "Discovery Call Booking",
+        aiReply: greetingPrompt,
+        smsSent: `${smsTemplate} (${calendarLink})`,
         status: "Booked"
       };
 
       setCallLogs((prev) => [newLog, ...prev]);
       setSimulatedCallActive(false);
-    }, 1800);
+    }, 1500);
   };
 
   return (
@@ -309,7 +379,6 @@ export default function ZyntaxApp() {
         {/* STEP 1: LANDING PAGE */}
         {currentStep === "landing" && (
           <div className="flex-1 flex flex-col">
-            {/* Hero Section */}
             <section
               id="live-demo"
               className="max-w-7xl mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center"
@@ -333,7 +402,7 @@ export default function ZyntaxApp() {
                   An autonomous AI receptionist that answers missed calls, qualifies inquiries, books appointments, and triggers instant SMS follow-ups in real time.
                 </p>
 
-                {/* Primary Hero CTA Zone ("Get Started" prominently placed here) */}
+                {/* Primary Hero CTA Zone */}
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-10">
                   <button
                     onClick={() => {
@@ -358,7 +427,7 @@ export default function ZyntaxApp() {
                   </button>
                 </div>
 
-                {/* Quick OAuth Strip right below Hero CTA */}
+                {/* Quick OAuth Strip */}
                 {!authenticatedUser && (
                   <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pb-8 border-b border-[#1F2937]/80">
                     <span>Instant access with:</span>
@@ -646,7 +715,7 @@ export default function ZyntaxApp() {
               <div className="grid md:grid-cols-3 gap-5 mb-8">
                 {/* Dental Clinic */}
                 <div
-                  onClick={() => setSelectedNiche("dental")}
+                  onClick={() => handleSelectNiche("dental")}
                   className={`cursor-pointer rounded-xl p-5 border-2 transition-all relative flex flex-col justify-between ${
                     selectedNiche === "dental"
                       ? "border-emerald-500 bg-emerald-950/20 shadow-lg shadow-emerald-500/10"
@@ -674,7 +743,7 @@ export default function ZyntaxApp() {
 
                 {/* Real Estate */}
                 <div
-                  onClick={() => setSelectedNiche("realestate")}
+                  onClick={() => handleSelectNiche("realestate")}
                   className={`cursor-pointer rounded-xl p-5 border-2 transition-all relative flex flex-col justify-between ${
                     selectedNiche === "realestate"
                       ? "border-emerald-500 bg-emerald-950/20 shadow-lg shadow-emerald-500/10"
@@ -702,7 +771,7 @@ export default function ZyntaxApp() {
 
                 {/* Consulting */}
                 <div
-                  onClick={() => setSelectedNiche("consulting")}
+                  onClick={() => handleSelectNiche("consulting")}
                   className={`cursor-pointer rounded-xl p-5 border-2 transition-all relative flex flex-col justify-between ${
                     selectedNiche === "consulting"
                       ? "border-emerald-500 bg-emerald-950/20 shadow-lg shadow-emerald-500/10"
@@ -771,7 +840,7 @@ export default function ZyntaxApp() {
                     className="w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-[#1F2937] transition flex items-center space-x-2.5"
                   >
                     <GitBranch className="w-4 h-4 text-slate-400" />
-                    <span>AI Workflows</span>
+                    <span>Edit AI Pipeline</span>
                   </button>
                   <button
                     onClick={() => setCurrentStep("onboarding")}
@@ -837,7 +906,7 @@ export default function ZyntaxApp() {
                     onClick={() => setCurrentStep("workflows")}
                     className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition"
                   >
-                    <span>Configure Workflows</span>
+                    <span>Edit Pipeline</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -912,7 +981,7 @@ export default function ZyntaxApp() {
                       <PhoneCall className="w-8 h-8 text-slate-600 mx-auto mb-3" />
                       <p className="text-xs font-semibold text-slate-300">No calls logged yet</p>
                       <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto">
-                        Click &quot;Simulate Inbound Call&quot; at the top right to test how Zyntax AI captures and books a live lead.
+                        Click &quot;Simulate Inbound Call&quot; at the top right to test your edited AI greeting and SMS workflow.
                       </p>
                     </div>
                   ) : (
@@ -960,42 +1029,43 @@ export default function ZyntaxApp() {
 
                     {callLogs.length === 0 ? (
                       <div className="text-xs text-slate-400 py-8 text-center">
-                        Simulate an incoming call to inspect real-time transcription, intent extraction, and SMS actions.
+                        Simulate an incoming call to inspect how your configured AI prompt and SMS template execute live.
                       </div>
                     ) : (
                       <div className="space-y-3 text-xs">
                         <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] space-y-1.5">
                           <div className="flex justify-between text-slate-400">
-                            <span>Caller:</span>
-                            <span className="font-bold text-white">{callLogs[0].caller}</span>
-                          </div>
-                          <div className="flex justify-between text-slate-400">
-                            <span>Detected Intent:</span>
-                            <span className="text-cyan-400 font-medium">{callLogs[0].intent}</span>
-                          </div>
-                          <div className="flex justify-between text-slate-400">
                             <span>Voice Model:</span>
                             <span className="text-emerald-400 font-medium">{activeVoiceProfile.name}</span>
+                          </div>
+                          <div className="flex justify-between text-slate-400">
+                            <span>Pickup Rule:</span>
+                            <span className="text-cyan-400 font-medium">{pickupTrigger}</span>
                           </div>
                         </div>
 
                         <div className="bg-emerald-950/20 p-3 rounded-lg border border-emerald-500/30 text-emerald-200">
-                          <span className="text-[10px] text-emerald-400 block font-mono mb-1">Zyntax AI Response</span>
-                          &quot;Thank you for calling {tenant.name}. I have scheduled your appointment and sent a confirmation link via SMS.&quot;
+                          <span className="text-[10px] text-emerald-400 block font-mono mb-1">Spoken AI Greeting</span>
+                          &quot;{callLogs[0].aiReply}&quot;
+                        </div>
+
+                        <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] text-slate-300">
+                          <span className="text-[10px] text-cyan-400 block font-mono mb-1">Dispatched SMS Payload</span>
+                          &quot;{callLogs[0].smsSent}&quot;
                         </div>
                       </div>
                     )}
                   </div>
 
                   <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] text-xs space-y-1.5 mt-4">
-                    <div className="font-bold text-slate-300 text-[11px] mb-1">Automation Rules Ready:</div>
+                    <div className="font-bold text-slate-300 text-[11px] mb-1">Active Pipeline Rules:</div>
                     <div className="flex items-center text-slate-400 gap-2">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Instant SMS dispatch enabled</span>
+                      <span>Custom AI greeting prompt loaded</span>
                     </div>
                     <div className="flex items-center text-slate-400 gap-2">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Calendar conflict check active</span>
+                      <span>Calendar link: {calendarLink}</span>
                     </div>
                   </div>
                 </div>
@@ -1004,10 +1074,10 @@ export default function ZyntaxApp() {
           </div>
         )}
 
-        {/* STEP 4: WORKFLOW AUTOMATION ENGINE */}
+        {/* STEP 4: EDITABLE WORKFLOW AUTOMATION ENGINE (CONNECTED TO /api/workflows) */}
         {currentStep === "workflows" && (
           <div className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
-            <div className="flex justify-between items-center pb-4 border-b border-[#1F2937]">
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-[#1F2937]">
               <div>
                 <button
                   onClick={() => setCurrentStep("dashboard")}
@@ -1015,84 +1085,148 @@ export default function ZyntaxApp() {
                 >
                   ← Back to Telemetry Console
                 </button>
-                <h2 className="text-2xl font-black text-white">AI Workflow Automation</h2>
+                <h2 className="text-2xl font-black text-white">Edit AI Automation Pipeline</h2>
                 <p className="text-xs text-slate-400">
-                  Configure multi-step routing logic for missed calls and automated lead follow-ups.
+                  Customize your voice greeting, automated SMS message, and calendar booking webhook.
                 </p>
               </div>
 
-              <button
-                onClick={() => setCurrentStep("dashboard")}
-                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition"
-              >
-                <Sparkles className="w-4 h-4" />
-                <span>Save &amp; Apply</span>
-              </button>
+              <div className="flex items-center gap-3">
+                {workflowSaveStatus && (
+                  <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
+                    {workflowSaveStatus}
+                  </span>
+                )}
+                <button
+                  onClick={handleSaveWorkflow}
+                  disabled={isSavingWorkflow}
+                  className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition"
+                >
+                  {isSavingWorkflow ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="w-4 h-4" />
+                  )}
+                  <span>{isSavingWorkflow ? "Syncing..." : "Save & Apply Pipeline"}</span>
+                </button>
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              {/* Left Column: Visual Pipeline */}
+              {/* Left Column: Interactive Editable Pipeline Nodes */}
               <div className="lg:col-span-7 bg-[#111827] border border-[#1F2937] rounded-xl p-6">
                 <h3 className="font-bold text-sm text-white mb-6 flex items-center gap-2">
                   <Layers className="w-4 h-4 text-emerald-400" />
-                  <span>Active Routing Pipeline ({selectedVersion})</span>
+                  <span>Editable Routing Pipeline ({selectedVersion})</span>
                 </h3>
 
                 <div className="space-y-3">
-                  {[
-                    {
-                      step: "01",
-                      title: "Trigger: Inbound / Missed Call",
-                      desc: "Detects unanswered call and connects voice agent immediately.",
-                      icon: PhoneCall
-                    },
-                    {
-                      step: "02",
-                      title: "AI Intent Qualification & Booking",
-                      desc: "Converses naturally with caller and locks available calendar slot.",
-                      icon: Bot
-                    },
-                    {
-                      step: "03",
-                      title: "Automated SMS Follow-Up",
-                      desc: "Sends instant confirmation details and intake link to caller.",
-                      icon: MessageSquare
-                    },
-                    {
-                      step: "04",
-                      title: "CRM Record Sync",
-                      desc: "Logs call summary, transcript, and appointment status to CRM.",
-                      icon: GitBranch
-                    }
-                  ].map((node, i) => {
-                    const IconComponent = node.icon;
-                    return (
-                      <React.Fragment key={i}>
-                        <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl flex items-center justify-between">
-                          <div className="flex items-center space-x-4">
-                            <span className="font-mono text-xs font-bold text-slate-500">{node.step}</span>
-                            <div className="w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400">
-                              <IconComponent className="w-5 h-5" />
-                            </div>
-                            <div>
-                              <div className="font-bold text-xs text-white">{node.title}</div>
-                              <div className="text-[11px] text-slate-400">{node.desc}</div>
-                            </div>
-                          </div>
-                          <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  {/* Node 01: Pickup Trigger */}
+                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="font-mono text-xs font-bold text-slate-500">01</span>
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-400">
+                          <PhoneCall className="w-4 h-4" />
                         </div>
-                        {i < 3 && (
-                          <div className="flex justify-center py-1">
-                            <div className="w-0.5 h-4 bg-[#1F2937]"></div>
-                          </div>
-                        )}
-                      </React.Fragment>
-                    );
-                  })}
+                        <div className="font-bold text-xs text-white">Trigger: Inbound / Missed Call</div>
+                      </div>
+                      <span className="text-[10px] font-mono text-cyan-400">Active</span>
+                    </div>
+                    <select
+                      value={pickupTrigger}
+                      onChange={(e) => setPickupTrigger(e.target.value)}
+                      className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
+                    >
+                      <option value="Instant (0s Missed-Call Intercept)">Instant (0s Missed-Call Intercept)</option>
+                      <option value="After 2 Rings (Overflow Receptionist)">After 2 Rings (Overflow Receptionist)</option>
+                      <option value="After-Hours & Weekend Mode">After-Hours &amp; Weekend Mode</option>
+                    </select>
+                  </div>
+
+                  <div className="flex justify-center py-0.5">
+                    <div className="w-0.5 h-4 bg-[#1F2937]"></div>
+                  </div>
+
+                  {/* Node 02: Editable AI Greeting Prompt */}
+                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="font-mono text-xs font-bold text-slate-500">02</span>
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400">
+                          <Bot className="w-4 h-4" />
+                        </div>
+                        <div className="font-bold text-xs text-white">
+                          AI Voice Greeting Prompt ({activeVoiceProfile.name})
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400">Editable</span>
+                    </div>
+                    <textarea
+                      rows={3}
+                      value={greetingPrompt}
+                      onChange={(e) => setGreetingPrompt(e.target.value)}
+                      placeholder="Enter what Zyntax AI speaks when answering a call..."
+                      className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg p-3 text-xs text-slate-200 focus:outline-none leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="flex justify-center py-0.5">
+                    <div className="w-0.5 h-4 bg-[#1F2937]"></div>
+                  </div>
+
+                  {/* Node 03: Editable SMS Template */}
+                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="font-mono text-xs font-bold text-slate-500">03</span>
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-purple-400">
+                          <MessageSquare className="w-4 h-4" />
+                        </div>
+                        <div className="font-bold text-xs text-white">Automated SMS Follow-Up Template</div>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400">Editable</span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={smsTemplate}
+                      onChange={(e) => setSmsTemplate(e.target.value)}
+                      placeholder="Enter automated text message sent to caller..."
+                      className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg p-3 text-xs text-slate-200 focus:outline-none leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="flex justify-center py-0.5">
+                    <div className="w-0.5 h-4 bg-[#1F2937]"></div>
+                  </div>
+
+                  {/* Node 04: Calendar / CRM Sync URL */}
+                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <span className="font-mono text-xs font-bold text-slate-500">04</span>
+                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400">
+                          <GitBranch className="w-4 h-4" />
+                        </div>
+                        <div className="font-bold text-xs text-white">Calendar &amp; CRM Booking Link</div>
+                      </div>
+                      <span className="text-[10px] font-mono text-emerald-400">Webhook / URL</span>
+                    </div>
+                    <div className="relative">
+                      <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
+                      <input
+                        type="url"
+                        value={calendarLink}
+                        onChange={(e) => setCalendarLink(e.target.value)}
+                        placeholder="https://cal.com/your-link"
+                        className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 font-mono focus:outline-none"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Right Column: Live Session Stats */}
+              {/* Right Column: Live Session Stats & Execution Log */}
               <div className="lg:col-span-5 space-y-6">
                 <div className="bg-[#111827] border border-[#1F2937] rounded-xl p-6">
                   <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-4">
@@ -1122,7 +1256,7 @@ export default function ZyntaxApp() {
                   </h3>
                   {callLogs.length === 0 ? (
                     <p className="text-xs text-slate-500">
-                      No workflow executions yet. Trigger a test call from the dashboard to see live logs here.
+                      Save your pipeline, then go back to the Console and click &quot;Simulate Inbound Call&quot; to test your custom prompt &amp; SMS.
                     </p>
                   ) : (
                     <div className="space-y-3 text-xs">
@@ -1147,7 +1281,7 @@ export default function ZyntaxApp() {
         )}
       </main>
 
-      {/* AUTH MODAL (LOGIN & SIGN UP WITH GOOGLE, FACEBOOK, EMAIL) */}
+      {/* AUTH MODAL */}
       {authModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#111827] border border-[#1F2937] rounded-2xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
