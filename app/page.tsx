@@ -111,7 +111,6 @@ const DEMO_RECORDINGS: ScenarioRecording[] = [
 ];
 
 export default function ZyntaxLandingPage() {
-  // Interactive Demo Widget State
   const [demoPhone, setDemoPhone] = useState("");
   const [demoNiche, setDemoNiche] = useState<NicheType>("dental");
   const [isTriggeringCall, setIsTriggeringCall] = useState(false);
@@ -120,18 +119,15 @@ export default function ZyntaxLandingPage() {
     text: string;
   } | null>(null);
 
-  // Playable Audio Scenario State
   const [playingScenarioId, setPlayingScenarioId] = useState<string | null>(null);
   const audioTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // ROI Calculator State
   const [roiNiche, setRoiNiche] = useState<NicheType>("dental");
   const [missedPerWeek, setMissedPerWeek] = useState<number>(12);
 
   const activeRoiConfig = NICHE_DATA[roiNiche];
   const monthlyMissedCalls = missedPerWeek * 4;
   const monthlyLostRevenue = monthlyMissedCalls * activeRoiConfig.avgTicket;
-  // Conservative 65% recovery rate via instant AI pickup & SMS follow-up
   const estimatedRecoveredRevenue = Math.round(monthlyLostRevenue * 0.65);
 
   const handleRoiNicheSwitch = (niche: NicheType) => {
@@ -139,7 +135,6 @@ export default function ZyntaxLandingPage() {
     setMissedPerWeek(NICHE_DATA[niche].defaultMissedPerWeek);
   };
 
-  // Trigger Live Demo Call (/api/demo-call)
   const handleTriggerDemoCall = async (e: React.FormEvent) => {
     e.preventDefault();
     setCallFeedback(null);
@@ -188,7 +183,6 @@ export default function ZyntaxLandingPage() {
     }
   };
 
-  // Toggle Scenario Audio Simulation
   const toggleScenarioPlayback = (id: string) => {
     if (audioTimerRef.current) {
       clearTimeout(audioTimerRef.current);
@@ -216,7 +210,6 @@ export default function ZyntaxLandingPage() {
       {/* 1. STICKY TOP CONVERSION NAVBAR */}
       <header className="sticky top-0 z-50 bg-[#0B0F19]/90 backdrop-blur-md border-b border-[#1F2937]">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          {/* Brand Logo + Version Tag */}
           <a href="#" className="flex items-center space-x-2.5">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/50 flex items-center justify-center font-black text-emerald-400 text-lg">
               Z
@@ -227,7 +220,6 @@ export default function ZyntaxLandingPage() {
             </span>
           </a>
 
-          {/* Navigation Anchors */}
           <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
             <a href="#live-demo" className="hover:text-emerald-400 transition">
               Live Demo
@@ -236,11 +228,10 @@ export default function ZyntaxLandingPage() {
               ROI Calculator
             </a>
             <a href="#pricing" className="hover:text-emerald-400 transition">
-              Pilot Pricing
+              Pricing
             </a>
           </nav>
 
-          {/* Top Action CTAs */}
           <div className="flex items-center space-x-3">
             <a
               href="/login"
@@ -262,7 +253,6 @@ export default function ZyntaxLandingPage() {
       <main className="flex-1">
         {/* 2. HERO SECTION + INTERACTIVE "CALL ME NOW" LIVE DEMO WIDGET */}
         <section className="max-w-7xl mx-auto px-6 pt-14 pb-20 grid lg:grid-cols-12 gap-12 items-center">
-          {/* Left Hero Copy (7 cols) */}
           <div className="lg:col-span-7">
             <div className="inline-flex items-center space-x-2 bg-[#111827] border border-emerald-500/30 px-3.5 py-1.5 rounded-full mb-6">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
@@ -282,7 +272,6 @@ export default function ZyntaxLandingPage() {
               Zyntax AI answers missed calls in sub-500ms, qualifies urgency, books appointments directly onto your calendar, and fires an instant SMS confirmation—before callers dial your competitor.
             </p>
 
-            {/* Primary & Secondary Hero CTAs */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-10">
               <a
                 href="/signup"
@@ -300,7 +289,6 @@ export default function ZyntaxLandingPage() {
               </a>
             </div>
 
-            {/* Key Value Props */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-[#1F2937] text-xs text-slate-300">
               <div className="flex items-center space-x-2">
                 <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -317,7 +305,6 @@ export default function ZyntaxLandingPage() {
             </div>
           </div>
 
-          {/* Right: Interactive "Call Me Now" Live Demo Widget (#live-demo) (5 cols) */}
           <div id="live-demo" className="lg:col-span-5 relative scroll-mt-24">
             <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/25 to-cyan-500/25 rounded-2xl blur-xl opacity-80"></div>
             <div className="relative bg-[#111827] border border-[#1F2937] rounded-2xl p-6 sm:p-7 shadow-2xl">
@@ -338,7 +325,6 @@ export default function ZyntaxLandingPage() {
               </div>
 
               <form onSubmit={handleTriggerDemoCall} className="space-y-4">
-                {/* Niche Selector Pills */}
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
                     1. Choose Industry Persona
@@ -365,7 +351,6 @@ export default function ZyntaxLandingPage() {
                   </div>
                 </div>
 
-                {/* Phone Number Input */}
                 <div>
                   <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
                     2. Enter Your Mobile Number
@@ -478,7 +463,6 @@ export default function ZyntaxLandingPage() {
 
                     <h3 className="font-bold text-base text-white mb-4">{rec.title}</h3>
 
-                    {/* Audio Waveform Player */}
                     <div className="bg-[#0B0F19] border border-[#1F2937] rounded-xl p-3 flex items-center space-x-3 mb-5">
                       <button
                         type="button"
@@ -508,7 +492,6 @@ export default function ZyntaxLandingPage() {
                       <Volume2 className={`w-4 h-4 ${isPlaying ? "text-cyan-400" : "text-slate-600"}`} />
                     </div>
 
-                    {/* Transcript Snippet */}
                     <div className="space-y-2.5 text-xs mb-5">
                       <div className="bg-[#0B0F19] p-3 rounded-xl border border-[#1F2937] text-slate-300">
                         <span className="text-[10px] font-mono text-slate-500 block mb-0.5">Caller</span>
@@ -552,7 +535,6 @@ export default function ZyntaxLandingPage() {
             </div>
 
             <div className="bg-[#111827] border border-[#1F2937] rounded-2xl p-6 sm:p-10 shadow-2xl">
-              {/* 3 Niche Tabs */}
               <div className="grid grid-cols-3 gap-3 bg-[#0B0F19] p-1.5 rounded-xl border border-[#1F2937] mb-8">
                 <button
                   type="button"
@@ -595,7 +577,6 @@ export default function ZyntaxLandingPage() {
               </div>
 
               <div className="grid lg:grid-cols-12 gap-8 items-center">
-                {/* Left: Slider & Formula Breakdown (7 cols) */}
                 <div className="lg:col-span-7 space-y-6">
                   <div>
                     <div className="flex justify-between items-center mb-3">
@@ -622,7 +603,6 @@ export default function ZyntaxLandingPage() {
                     </div>
                   </div>
 
-                  {/* Transparent Formula Breakdown */}
                   <div className="bg-[#0B0F19] border border-[#1F2937] rounded-xl p-4 space-y-2.5 text-xs">
                     <div className="flex justify-between text-slate-400">
                       <span>Monthly Missed Calls ({missedPerWeek}/wk × 4):</span>
@@ -641,7 +621,6 @@ export default function ZyntaxLandingPage() {
                   </div>
                 </div>
 
-                {/* Right: Lost vs Recovered Revenue Card (5 cols) */}
                 <div className="lg:col-span-5 bg-[#0B0F19] border border-[#1F2937] rounded-2xl p-6 space-y-5">
                   <div>
                     <div className="text-xs uppercase font-bold tracking-wider text-amber-400 mb-1">
@@ -679,7 +658,7 @@ export default function ZyntaxLandingPage() {
           </div>
         </section>
 
-       {/* 6. 4-TIER SAAS PRICING SECTION ($199 / $299 / $599 / CUSTOM) */}
+        {/* 6. 4-TIER SAAS PRICING SECTION ($199 / $299 / $599 / CUSTOM) */}
         <section id="pricing" className="max-w-7xl mx-auto px-6 py-24 scroll-mt-20">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
@@ -733,7 +712,7 @@ export default function ZyntaxLandingPage() {
               </a>
             </div>
 
-            {/* PLAN 2: $299/mo (MOST POPULAR - HIGHLIGHTED) */}
+            {/* PLAN 2: $299/mo (MOST POPULAR) */}
             <div className="relative bg-[#111827] border-2 border-emerald-500 rounded-2xl p-6 flex flex-col justify-between shadow-2xl shadow-emerald-500/15">
               <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow">
                 Most Popular
@@ -857,6 +836,7 @@ export default function ZyntaxLandingPage() {
             </div>
           </div>
         </section>
+      </main>
 
       {/* CLEAN CORPORATE FOOTER */}
       <footer className="border-t border-[#1F2937] bg-[#0B0F19] py-8 px-6">
