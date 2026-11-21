@@ -42,6 +42,7 @@ const NICHE_DATA: Record<
   NicheType,
   {
     label: string;
+    tabLabel: string;
     avgTicket: number;
     defaultMissedPerWeek: number;
     unitLabel: string;
@@ -50,6 +51,7 @@ const NICHE_DATA: Record<
 > = {
   dental: {
     label: "Dental Clinic",
+    tabLabel: "Dental $250",
     avgTicket: 250,
     defaultMissedPerWeek: 12,
     unitLabel: "Avg patient value",
@@ -57,15 +59,17 @@ const NICHE_DATA: Record<
   },
   realestate: {
     label: "Real Estate",
+    tabLabel: "Real Estate $5,000",
     avgTicket: 5000,
-    defaultMissedPerWeek: 6,
+    defaultMissedPerWeek: 8,
     unitLabel: "Avg commission value",
     crmLabel: "Follow Up Boss / HubSpot / Calendar"
   },
   consulting: {
     label: "Consulting Firm",
+    tabLabel: "Consulting $1,500",
     avgTicket: 1500,
-    defaultMissedPerWeek: 8,
+    defaultMissedPerWeek: 10,
     unitLabel: "Avg retainer value",
     crmLabel: "Salesforce / Calendly / HubSpot"
   }
@@ -165,7 +169,7 @@ export default function ZyntaxLandingPage() {
           text:
             data.mode === "live_twilio"
               ? `Calling ${demoPhone} now! Answer your phone to speak with Zyntax AI.`
-              : `Demo call triggered for ${demoPhone}! Listen to the ${NICHE_DATA[demoNiche].label} scenario below while Twilio trial keys connect.`
+              : data.message || `Demo call queued for ${demoPhone}.`
         });
       } else {
         setCallFeedback({
@@ -201,7 +205,9 @@ export default function ZyntaxLandingPage() {
 
   useEffect(() => {
     return () => {
-      if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+      if (audioTimerRef.current) {
+        clearTimeout(audioTimerRef.current);
+      }
     };
   }, []);
 
@@ -399,7 +405,7 @@ export default function ZyntaxLandingPage() {
               </form>
 
               <p className="text-[11px] text-slate-500 text-center mt-4">
-                Zero spam. Instant 45-second interactive voice AI call demo.
+                Limited to 1 live test call per number every 24 hours.
               </p>
             </div>
           </div>
@@ -535,7 +541,8 @@ export default function ZyntaxLandingPage() {
             </div>
 
             <div className="bg-[#111827] border border-[#1F2937] rounded-2xl p-6 sm:p-10 shadow-2xl">
-              <div className="grid grid-cols-3 gap-3 bg-[#0B0F19] p-1.5 rounded-xl border border-[#1F2937] mb-8">
+              {/* 3 Niche Tabs: Dental $250 | Real Estate $5,000 | Consulting $1,500 */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-[#0B0F19] p-1.5 rounded-xl border border-[#1F2937] mb-8">
                 <button
                   type="button"
                   onClick={() => handleRoiNicheSwitch("dental")}
@@ -546,7 +553,7 @@ export default function ZyntaxLandingPage() {
                   }`}
                 >
                   <Stethoscope className="w-4 h-4" />
-                  <span>Dental Clinic</span>
+                  <span>{NICHE_DATA.dental.tabLabel}</span>
                 </button>
 
                 <button
@@ -559,7 +566,7 @@ export default function ZyntaxLandingPage() {
                   }`}
                 >
                   <Building2 className="w-4 h-4" />
-                  <span>Real Estate</span>
+                  <span>{NICHE_DATA.realestate.tabLabel}</span>
                 </button>
 
                 <button
@@ -572,7 +579,7 @@ export default function ZyntaxLandingPage() {
                   }`}
                 >
                   <Briefcase className="w-4 h-4" />
-                  <span>Consulting</span>
+                  <span>{NICHE_DATA.consulting.tabLabel}</span>
                 </button>
               </div>
 
@@ -641,7 +648,7 @@ export default function ZyntaxLandingPage() {
                       <span className="text-xs font-normal text-emerald-200/70">/mo</span>
                     </div>
                     <div className="text-[11px] text-emerald-200/80 mt-1">
-                      {Math.round(estimatedRecoveredRevenue / 299)}x ROI on your $299/mo subscription
+                      {Math.max(1, Math.round(estimatedRecoveredRevenue / 299))}x ROI on your $299/mo subscription
                     </div>
                   </div>
 
@@ -838,7 +845,7 @@ export default function ZyntaxLandingPage() {
         </section>
       </main>
 
-     {/* CLEAN CORPORATE & COMPLIANCE FOOTER */}
+      {/* CLEAN CORPORATE & COMPLIANCE FOOTER */}
       <footer className="border-t border-[#1F2937] bg-[#0B0F19] py-8 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center space-x-2.5">
@@ -865,3 +872,6 @@ export default function ZyntaxLandingPage() {
           <div>© {new Date().getFullYear()} Zyntax AI. All rights reserved.</div>
         </div>
       </footer>
+    </div>
+  );
+}
