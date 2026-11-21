@@ -838,7 +838,7 @@ export default function ZyntaxLandingPage() {
         </section>
       </main>
 
-      {/* CLEAN CORPORATE FOOTER */}
+     {/* CLEAN CORPORATE & COMPLIANCE FOOTER */}
       <footer className="border-t border-[#1F2937] bg-[#0B0F19] py-8 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
           <div className="flex items-center space-x-2.5">
@@ -849,9 +849,19 @@ export default function ZyntaxLandingPage() {
             <span>•</span>
             <span className="font-mono text-emerald-400/80">v2.0 Beta</span>
           </div>
+
+          <div className="flex flex-wrap items-center gap-6 text-slate-400">
+            <a href="/privacy" className="hover:text-emerald-400 transition">
+              Privacy Policy
+            </a>
+            <a href="/terms" className="hover:text-emerald-400 transition">
+              Terms of Service
+            </a>
+            <a href="/tcpa" className="hover:text-emerald-400 transition">
+              TCPA &amp; SMS Opt-In
+            </a>
+          </div>
+
           <div>© {new Date().getFullYear()} Zyntax AI. All rights reserved.</div>
         </div>
       </footer>
-    </div>
-  );
-}
