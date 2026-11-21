@@ -23,12 +23,23 @@ import {
   ChevronDown,
   Check,
   Zap,
-  Clock
+  Clock,
+  Mic,
+  Volume2,
+  Globe,
+  Shield,
+  Sliders,
+  X,
+  Mail,
+  Lock,
+  User,
+  LogOut
 } from "lucide-react";
 
 type StepType = "landing" | "onboarding" | "dashboard" | "workflows";
 type NicheType = "dental" | "realestate" | "consulting";
 type VersionType = "Zyntax 2.0" | "Zyntax Beta" | "v1.0 Core";
+type AuthMode = "login" | "signup";
 
 interface CallLog {
   id: string;
@@ -42,8 +53,6 @@ interface CallLog {
 interface TenantProfile {
   name: string;
   niche: NicheType;
-  ownerName: string;
-  location: string;
   phoneLine: string;
   avgTicket: number;
   currency: string;
@@ -53,8 +62,6 @@ const NICHE_CONFIGS: Record<NicheType, TenantProfile> = {
   dental: {
     name: "Dental Clinic Workspace",
     niche: "dental",
-    ownerName: "Clinic Admin",
-    location: "Primary Branch",
     phoneLine: "+1 (512) 000-0101",
     avgTicket: 250,
     currency: "$"
@@ -62,8 +69,6 @@ const NICHE_CONFIGS: Record<NicheType, TenantProfile> = {
   realestate: {
     name: "Real Estate Workspace",
     niche: "realestate",
-    ownerName: "Agency Admin",
-    location: "Primary Branch",
     phoneLine: "+1 (512) 000-0202",
     avgTicket: 5000,
     currency: "$"
@@ -71,13 +76,38 @@ const NICHE_CONFIGS: Record<NicheType, TenantProfile> = {
   consulting: {
     name: "Consulting Workspace",
     niche: "consulting",
-    ownerName: "Firm Admin",
-    location: "Primary Branch",
     phoneLine: "+1 (512) 000-0303",
     avgTicket: 1500,
     currency: "$"
   }
 };
+
+const VOICE_PROFILES = [
+  {
+    id: "aria",
+    name: "Aria",
+    tone: "Warm & Empathetic",
+    accent: "US English",
+    latency: "380ms",
+    sampleLine: "Good morning! Thanks for calling. I can help you schedule your visit right away—what day works best for you?"
+  },
+  {
+    id: "marcus",
+    name: "Marcus",
+    tone: "Executive & Direct",
+    accent: "US / Neutral",
+    latency: "410ms",
+    sampleLine: "Hello, you've reached the front desk. Tell me a bit about what you're looking for and I'll match you with an advisor."
+  },
+  {
+    id: "nova",
+    name: "Nova",
+    tone: "Energetic & Fast",
+    accent: "UK / Global",
+    latency: "360ms",
+    sampleLine: "Hi there! Sorry we missed your call. Let's get your slot locked in so you don't have to wait on hold."
+  }
+];
 
 export default function ZyntaxApp() {
   const [currentStep, setCurrentStep] = useState<StepType>("landing");
@@ -85,18 +115,64 @@ export default function ZyntaxApp() {
   const [selectedVersion, setSelectedVersion] = useState<VersionType>("Zyntax 2.0");
   const [versionMenuOpen, setVersionMenuOpen] = useState(false);
 
+  // Auth State
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<AuthMode>("signup");
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
+  const [userPassword, setUserPassword] = useState("");
+  const [authenticatedUser, setAuthenticatedUser] = useState<{ name: string; email: string; provider: string } | null>(
+    null
+  );
+
+  // Voice Engine Interactive State
+  const [selectedVoiceId, setSelectedVoiceId] = useState("aria");
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
+  const [isPlayingEngineSample, setIsPlayingEngineSample] = useState(false);
+
+  // Dashboard State
   const [isLiveTakeover, setIsLiveTakeover] = useState(false);
   const [callListFilter, setCallListFilter] = useState<"all" | "missed" | "confirmed">("all");
   const [simulatedCallActive, setSimulatedCallActive] = useState(false);
-
-  // Clean real-time state starting from 0 (updates when test call is triggered)
   const [missedCallsCount, setMissedCallsCount] = useState(0);
   const [bookingsCount, setBookingsCount] = useState(0);
   const [callLogs, setCallLogs] = useState<CallLog[]>([]);
 
   const tenant = NICHE_CONFIGS[selectedNiche];
   const recoveredRevenue = bookingsCount * tenant.avgTicket;
+  const activeVoiceProfile = VOICE_PROFILES.find((v) => v.id === selectedVoiceId) || VOICE_PROFILES[0];
+
+  const openAuth = (mode: AuthMode) => {
+    setAuthMode(mode);
+    setAuthModalOpen(true);
+  };
+
+  const handleSocialAuth = (provider: "Google" | "Facebook") => {
+    setAuthenticatedUser({
+      name: `${provider} Account`,
+      email: `user@${provider.toLowerCase()}.com`,
+      provider
+    });
+    setAuthModalOpen(false);
+    setCurrentStep("onboarding");
+  };
+
+  const handleEmailAuth = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userEmail.trim()) return;
+    setAuthenticatedUser({
+      name: userName.trim() || userEmail.split("@")[0],
+      email: userEmail.trim(),
+      provider: "Email"
+    });
+    setAuthModalOpen(false);
+    setCurrentStep("onboarding");
+  };
+
+  const handleLogout = () => {
+    setAuthenticatedUser(null);
+    setCurrentStep("landing");
+  };
 
   const triggerCallSimulation = () => {
     if (simulatedCallActive) return;
@@ -122,13 +198,13 @@ export default function ZyntaxApp() {
 
       setCallLogs((prev) => [newLog, ...prev]);
       setSimulatedCallActive(false);
-    }, 2000);
+    }, 1800);
   };
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col font-sans">
       {/* Main Top Navigation Bar */}
-      <header className="sticky top-0 z-50 bg-[#0B0F19]/90 backdrop-blur-md border-b border-[#1F2937]">
+      <header className="sticky top-0 z-40 bg-[#0B0F19]/90 backdrop-blur-md border-b border-[#1F2937]">
         <div className="max-w-7xl mx-auto w-full px-6 py-4 flex items-center justify-between">
           {/* Logo + Version Selector */}
           <div className="flex items-center space-x-3">
@@ -174,36 +250,55 @@ export default function ZyntaxApp() {
             </div>
           </div>
 
-          {/* Right Navigation Actions */}
-          <div className="flex items-center space-x-6">
-            {currentStep === "landing" ? (
+          {/* Center Nav Links on Landing */}
+          {currentStep === "landing" && (
+            <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+              <a href="#voice-engine" className="hover:text-emerald-400 transition">
+                Voice Engine
+              </a>
+              <a href="#capabilities" className="hover:text-emerald-400 transition">
+                Capabilities
+              </a>
+              <a href="#live-demo" className="hover:text-emerald-400 transition">
+                Live Preview
+              </a>
+            </nav>
+          )}
+
+          {/* Right Auth / Workspace Controls */}
+          <div className="flex items-center space-x-3">
+            {authenticatedUser ? (
               <>
-                <div className="hidden md:flex items-center space-x-7 text-sm font-medium text-slate-300">
-                  <a href="#features" className="hover:text-emerald-400 transition">Features</a>
-                  <a href="#voice-preview" className="hover:text-emerald-400 transition">Voice Engine</a>
-                  <a href="#workflow-info" className="hover:text-emerald-400 transition">Automation</a>
-                </div>
                 <button
-                  onClick={() => setCurrentStep("onboarding")}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-5 py-2 rounded-lg font-bold text-sm transition flex items-center space-x-2 shadow-lg shadow-emerald-500/20"
+                  onClick={() => setCurrentStep("dashboard")}
+                  className="hidden sm:inline-flex items-center space-x-2 text-xs font-medium text-slate-200 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] px-3.5 py-2 rounded-lg transition"
                 >
-                  <span>Get Started</span>
-                  <ArrowRight className="w-4 h-4" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
+                  <span>{authenticatedUser.name}</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="text-xs text-slate-400 hover:text-white bg-[#111827] border border-[#1F2937] p-2 rounded-lg transition"
+                  title="Sign out"
+                >
+                  <LogOut className="w-4 h-4" />
                 </button>
               </>
             ) : (
-              <div className="flex items-center space-x-3">
-                <span className="hidden sm:inline-flex items-center space-x-1.5 text-xs font-mono text-slate-400 bg-[#111827] px-3 py-1.5 rounded-lg border border-[#1F2937]">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>Engine Active</span>
-                </span>
+              <>
                 <button
-                  onClick={() => setCurrentStep("onboarding")}
-                  className="text-xs text-slate-300 hover:text-white bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] px-3 py-1.5 rounded-lg transition"
+                  onClick={() => openAuth("login")}
+                  className="text-sm font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg transition"
                 >
-                  Switch Business
+                  Log in
                 </button>
-              </div>
+                <button
+                  onClick={() => openAuth("signup")}
+                  className="bg-[#111827] hover:bg-[#1F2937] border border-emerald-500/40 text-emerald-400 text-sm font-semibold px-4 py-2 rounded-lg transition"
+                >
+                  Sign up
+                </button>
+              </>
             )}
           </div>
         </div>
@@ -214,15 +309,16 @@ export default function ZyntaxApp() {
         {/* STEP 1: LANDING PAGE */}
         {currentStep === "landing" && (
           <div className="flex-1 flex flex-col">
+            {/* Hero Section */}
             <section
-              id="voice-preview"
-              className="max-w-7xl mx-auto px-6 pt-16 pb-24 grid lg:grid-cols-2 gap-16 items-center flex-1"
+              id="live-demo"
+              className="max-w-7xl mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center"
             >
               <div>
                 <div className="inline-flex items-center space-x-2 bg-[#111827] border border-emerald-500/30 px-3.5 py-1.5 rounded-full mb-6">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                   <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                    {selectedVersion} • AI Receptionist
+                    {selectedVersion} • Neural Voice Receptionist
                   </span>
                 </div>
 
@@ -233,32 +329,65 @@ export default function ZyntaxApp() {
                   </span>
                 </h1>
 
-                <p className="text-lg text-slate-400 mb-8 max-w-xl leading-relaxed">
+                <p className="text-lg text-slate-400 mb-9 max-w-xl leading-relaxed">
                   An autonomous AI receptionist that answers missed calls, qualifies inquiries, books appointments, and triggers instant SMS follow-ups in real time.
                 </p>
 
-                <div className="flex flex-wrap gap-4 items-center mb-12">
+                {/* Primary Hero CTA Zone ("Get Started" prominently placed here) */}
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-10">
                   <button
-                    onClick={() => setCurrentStep("onboarding")}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-7 py-3.5 rounded-xl font-bold text-base transition flex items-center space-x-2 shadow-xl shadow-emerald-500/25"
+                    onClick={() => {
+                      if (authenticatedUser) {
+                        setCurrentStep("onboarding");
+                      } else {
+                        openAuth("signup");
+                      }
+                    }}
+                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-4 rounded-xl font-extrabold text-base transition flex items-center justify-center space-x-2.5 shadow-xl shadow-emerald-500/25"
                   >
-                    <span>Launch Workspace</span>
+                    <span>Get Started Free</span>
                     <ArrowRight className="w-5 h-5" />
                   </button>
+
                   <button
                     onClick={() => setCurrentStep("dashboard")}
-                    className="bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-6 py-3.5 rounded-xl font-semibold text-base transition flex items-center space-x-2"
+                    className="bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-6 py-4 rounded-xl font-semibold text-base transition flex items-center justify-center space-x-2"
                   >
                     <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
-                    <span>Open Live Console</span>
+                    <span>Explore Live Console</span>
                   </button>
                 </div>
 
-                {/* Real Technical Capabilities (No fake vanity metrics) */}
-                <div
-                  id="features"
-                  className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-6 border-t border-[#1F2937]/80 text-xs text-slate-400 font-medium"
-                >
+                {/* Quick OAuth Strip right below Hero CTA */}
+                {!authenticatedUser && (
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pb-8 border-b border-[#1F2937]/80">
+                    <span>Instant access with:</span>
+                    <button
+                      onClick={() => handleSocialAuth("Google")}
+                      className="inline-flex items-center space-x-2 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-3 py-1.5 rounded-lg font-medium transition"
+                    >
+                      <span className="font-bold text-emerald-400">G</span>
+                      <span>Google</span>
+                    </button>
+                    <button
+                      onClick={() => handleSocialAuth("Facebook")}
+                      className="inline-flex items-center space-x-2 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-3 py-1.5 rounded-lg font-medium transition"
+                    >
+                      <span className="font-bold text-cyan-400">f</span>
+                      <span>Facebook</span>
+                    </button>
+                    <button
+                      onClick={() => openAuth("signup")}
+                      className="inline-flex items-center space-x-2 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-3 py-1.5 rounded-lg font-medium transition"
+                    >
+                      <Mail className="w-3.5 h-3.5 text-slate-400" />
+                      <span>Email</span>
+                    </button>
+                  </div>
+                )}
+
+                {/* Core Highlights */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-6 text-xs text-slate-400 font-medium">
                   <div className="flex items-center space-x-2.5">
                     <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span>Sub-500ms Voice Latency</span>
@@ -269,7 +398,7 @@ export default function ZyntaxApp() {
                   </div>
                   <div className="flex items-center space-x-2.5">
                     <Bot className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Direct Calendar &amp; SMS Sync</span>
+                    <span>Calendar &amp; SMS Sync</span>
                   </div>
                 </div>
               </div>
@@ -288,7 +417,7 @@ export default function ZyntaxApp() {
                       </div>
                       <div>
                         <h4 className="font-bold text-sm text-white">Zyntax Voice Agent</h4>
-                        <p className="text-xs text-slate-400">Sample Call Flow Preview</p>
+                        <p className="text-xs text-slate-400">Live Call Conversation Flow</p>
                       </div>
                     </div>
                     <span className="bg-cyan-950/80 text-cyan-400 text-xs px-2.5 py-1 rounded border border-cyan-800/50 font-mono">
@@ -296,7 +425,7 @@ export default function ZyntaxApp() {
                     </span>
                   </div>
 
-                  {/* Sample Conversation Flow */}
+                  {/* Conversation Flow */}
                   <div className="space-y-4 mb-6">
                     <div className="bg-[#0B0F19] p-3.5 rounded-xl border border-[#1F2937] text-xs">
                       <div className="text-slate-400 mb-1 flex items-center justify-between font-mono">
@@ -349,6 +478,151 @@ export default function ZyntaxApp() {
                       {isPlayingAudio ? "Playing" : "Preview"}
                     </span>
                   </div>
+                </div>
+              </div>
+            </section>
+
+            {/* DEDICATED VOICE FEATURE ENGINE SECTION */}
+            <section id="voice-engine" className="border-t border-[#1F2937] bg-[#0D1322] py-20 px-6">
+              <div className="max-w-7xl mx-auto">
+                <div className="text-center max-w-2xl mx-auto mb-14">
+                  <span className="text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
+                    Zyntax Voice Feature Engine
+                  </span>
+                  <h2 className="text-3xl sm:text-4xl font-black text-white mt-4 mb-3">
+                    Engineered for Natural Human Conversations
+                  </h2>
+                  <p className="text-sm text-slate-400">
+                    Switch voice personas, test response cadence, and explore the core telephony features built inside {selectedVersion}.
+                  </p>
+                </div>
+
+                {/* Interactive Voice Persona Tester */}
+                <div className="bg-[#111827] border border-[#1F2937] rounded-2xl p-6 lg:p-8 mb-12 shadow-xl">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-[#1F2937]">
+                    <div>
+                      <h3 className="text-base font-bold text-white flex items-center gap-2">
+                        <Mic className="w-4 h-4 text-emerald-400" />
+                        <span>Select Neural Voice Model</span>
+                      </h3>
+                      <p className="text-xs text-slate-400 mt-1">
+                        Choose a voice profile tailored to your front-desk brand tone.
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3">
+                      {VOICE_PROFILES.map((voice) => (
+                        <button
+                          key={voice.id}
+                          onClick={() => {
+                            setSelectedVoiceId(voice.id);
+                            setIsPlayingEngineSample(true);
+                          }}
+                          className={`px-4 py-2.5 rounded-xl border text-left transition ${
+                            selectedVoiceId === voice.id
+                              ? "bg-emerald-500/10 border-emerald-500 text-white"
+                              : "bg-[#0B0F19] border-[#1F2937] text-slate-400 hover:border-slate-700"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-4">
+                            <span className="font-bold text-xs text-white">{voice.name}</span>
+                            <span className="text-[10px] font-mono text-emerald-400">{voice.latency}</span>
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5">{voice.tone}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Active Voice Sample Bar */}
+                  <div className="pt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div className="flex items-start space-x-4">
+                      <button
+                        onClick={() => setIsPlayingEngineSample(!isPlayingEngineSample)}
+                        className="w-12 h-12 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center justify-center shrink-0 transition shadow-lg shadow-cyan-500/20"
+                      >
+                        {isPlayingEngineSample ? (
+                          <Pause className="w-5 h-5 fill-slate-950" />
+                        ) : (
+                          <Volume2 className="w-5 h-5" />
+                        )}
+                      </button>
+                      <div>
+                        <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 mb-1">
+                          <span>Active Profile: {activeVoiceProfile.name}</span>
+                          <span>•</span>
+                          <span>{activeVoiceProfile.accent}</span>
+                        </div>
+                        <p className="text-sm text-slate-200 italic">
+                          &quot;{activeVoiceProfile.sampleLine}&quot;
+                        </p>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        if (authenticatedUser) {
+                          setCurrentStep("onboarding");
+                        } else {
+                          openAuth("signup");
+                        }
+                      }}
+                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-5 py-3 rounded-xl transition shrink-0 flex items-center gap-2"
+                    >
+                      <span>Deploy With {activeVoiceProfile.name}</span>
+                      <ArrowRight className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* 6 Core Voice Engine Capabilities Grid */}
+                <div id="capabilities" className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {[
+                    {
+                      icon: Zap,
+                      title: "Sub-500ms Response Turnaround",
+                      desc: "Streaming speech-to-intent architecture eliminates awkward robotic pauses during live phone calls."
+                    },
+                    {
+                      icon: Mic,
+                      title: "Smart Barge-In & Interruption",
+                      desc: "If a caller interrupts mid-sentence to change dates or ask a question, the AI stops and adapts immediately."
+                    },
+                    {
+                      icon: Globe,
+                      title: "Multi-Language Auto-Detection",
+                      desc: "Automatically detects caller language and switches seamlessly without manual IVR menu prompts."
+                    },
+                    {
+                      icon: PhoneForwarded,
+                      title: "Warm Call Transfer & Escalation",
+                      desc: "Routes urgent VIP or emergency cases straight to your mobile phone with a spoken context summary."
+                    },
+                    {
+                      icon: Sliders,
+                      title: "Custom Knowledge Base Grounding",
+                      desc: "Answers pricing, insurance, property, or service FAQs directly from your uploaded business rules."
+                    },
+                    {
+                      icon: Shield,
+                      title: "Encrypted Call & Transcript Logs",
+                      desc: "Every call recording, summary, and booking trigger is stored securely inside your isolated workspace."
+                    }
+                  ].map((feat, idx) => {
+                    const Icon = feat.icon;
+                    return (
+                      <div
+                        key={idx}
+                        className="bg-[#111827] border border-[#1F2937] hover:border-emerald-500/30 p-6 rounded-2xl transition"
+                      >
+                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4">
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <h4 className="font-bold text-white text-base mb-2">{feat.title}</h4>
+                        <p className="text-xs text-slate-400 leading-relaxed">{feat.desc}</p>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </section>
@@ -482,7 +756,9 @@ export default function ZyntaxApp() {
               <div>
                 <div className="px-2 py-3 mb-6 border-b border-[#1F2937]">
                   <h3 className="text-xs font-bold text-white uppercase tracking-wide">{tenant.name}</h3>
-                  <p className="text-[11px] text-emerald-400 font-mono mt-0.5">{selectedVersion}</p>
+                  <p className="text-[11px] text-emerald-400 font-mono mt-0.5">
+                    {selectedVersion} • {activeVoiceProfile.name}
+                  </p>
                 </div>
 
                 <div className="space-y-1 text-xs">
@@ -497,6 +773,13 @@ export default function ZyntaxApp() {
                     <GitBranch className="w-4 h-4 text-slate-400" />
                     <span>AI Workflows</span>
                   </button>
+                  <button
+                    onClick={() => setCurrentStep("onboarding")}
+                    className="w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-[#1F2937] transition flex items-center space-x-2.5"
+                  >
+                    <Sliders className="w-4 h-4 text-slate-400" />
+                    <span>Switch Vertical</span>
+                  </button>
                 </div>
               </div>
 
@@ -507,8 +790,8 @@ export default function ZyntaxApp() {
                     <span className="font-mono text-cyan-400">Ready</span>
                   </div>
                   <div className="flex justify-between text-slate-400">
-                    <span>Voice Engine:</span>
-                    <span className="text-emerald-400">Standby</span>
+                    <span>Voice Profile:</span>
+                    <span className="text-emerald-400">{activeVoiceProfile.name}</span>
                   </div>
                 </div>
               </div>
@@ -584,9 +867,7 @@ export default function ZyntaxApp() {
                   </div>
                   <div className="text-3xl font-black text-white">{bookingsCount}</div>
                   <div className="text-xs text-slate-400 mt-2">
-                    {bookingsCount === 0
-                      ? "No bookings recorded yet"
-                      : "Synced to active calendar"}
+                    {bookingsCount === 0 ? "No bookings recorded yet" : "Synced to active calendar"}
                   </div>
                 </div>
 
@@ -679,7 +960,7 @@ export default function ZyntaxApp() {
 
                     {callLogs.length === 0 ? (
                       <div className="text-xs text-slate-400 py-8 text-center">
-                        Select or simulate an incoming call to inspect real-time transcription, intent extraction, and SMS actions.
+                        Simulate an incoming call to inspect real-time transcription, intent extraction, and SMS actions.
                       </div>
                     ) : (
                       <div className="space-y-3 text-xs">
@@ -693,8 +974,8 @@ export default function ZyntaxApp() {
                             <span className="text-cyan-400 font-medium">{callLogs[0].intent}</span>
                           </div>
                           <div className="flex justify-between text-slate-400">
-                            <span>Outcome:</span>
-                            <span className="text-emerald-400 font-medium">Slot Reserved &amp; SMS Sent</span>
+                            <span>Voice Model:</span>
+                            <span className="text-emerald-400 font-medium">{activeVoiceProfile.name}</span>
                           </div>
                         </div>
 
@@ -865,6 +1146,149 @@ export default function ZyntaxApp() {
           </div>
         )}
       </main>
+
+      {/* AUTH MODAL (LOGIN & SIGN UP WITH GOOGLE, FACEBOOK, EMAIL) */}
+      {authModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111827] border border-[#1F2937] rounded-2xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
+            <button
+              onClick={() => setAuthModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1.5 rounded-lg bg-[#0B0F19] border border-[#1F2937]"
+              aria-label="Close modal"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            <div className="flex items-center space-x-2 mb-6">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/50 flex items-center justify-center font-black text-emerald-400 text-sm">
+                Z
+              </div>
+              <span className="font-bold text-white">Zyntax AI</span>
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                {selectedVersion}
+              </span>
+            </div>
+
+            <h3 className="text-2xl font-black text-white mb-1">
+              {authMode === "signup" ? "Create your workspace" : "Welcome back"}
+            </h3>
+            <p className="text-xs text-slate-400 mb-6">
+              {authMode === "signup"
+                ? "Deploy your AI receptionist and automate missed-call recovery."
+                : "Sign in to access your Zyntax AI telemetry and voice workflows."}
+            </p>
+
+            {/* Social OAuth Buttons */}
+            <div className="grid grid-cols-2 gap-3 mb-5">
+              <button
+                type="button"
+                onClick={() => handleSocialAuth("Google")}
+                className="flex items-center justify-center space-x-2 bg-[#0B0F19] hover:bg-[#1F2937] border border-[#1F2937] text-white py-2.5 px-4 rounded-xl text-xs font-semibold transition"
+              >
+                <span className="text-sm font-black text-emerald-400">G</span>
+                <span>Continue with Google</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSocialAuth("Facebook")}
+                className="flex items-center justify-center space-x-2 bg-[#0B0F19] hover:bg-[#1F2937] border border-[#1F2937] text-white py-2.5 px-4 rounded-xl text-xs font-semibold transition"
+              >
+                <span className="text-sm font-black text-cyan-400">f</span>
+                <span>Facebook</span>
+              </button>
+            </div>
+
+            <div className="relative flex py-2 items-center mb-5">
+              <div className="flex-grow border-t border-[#1F2937]"></div>
+              <span className="flex-shrink mx-3 text-[11px] text-slate-500 uppercase font-mono">or with email</span>
+              <div className="flex-grow border-t border-[#1F2937]"></div>
+            </div>
+
+            {/* Email & Password Form */}
+            <form onSubmit={handleEmailAuth} className="space-y-3.5">
+              {authMode === "signup" && (
+                <div>
+                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Full Name</label>
+                  <div className="relative">
+                    <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="Enter your name"
+                      className="w-full bg-[#0B0F19] border border-[#1F2937] focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-400 mb-1">Work Email</label>
+                <div className="relative">
+                  <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="email"
+                    required
+                    value={userEmail}
+                    onChange={(e) => setUserEmail(e.target.value)}
+                    placeholder="you@company.com"
+                    className="w-full bg-[#0B0F19] border border-[#1F2937] focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-slate-400 mb-1">Password</label>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                  <input
+                    type="password"
+                    required
+                    value={userPassword}
+                    onChange={(e) => setUserPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full bg-[#0B0F19] border border-[#1F2937] focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-emerald-500/20 mt-2"
+              >
+                {authMode === "signup" ? "Create Account & Continue" : "Sign In to Workspace"}
+              </button>
+            </form>
+
+            <div className="text-center mt-5 text-xs text-slate-400">
+              {authMode === "signup" ? (
+                <>
+                  Already have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("login")}
+                    className="text-emerald-400 font-semibold hover:underline"
+                  >
+                    Log in
+                  </button>
+                </>
+              ) : (
+                <>
+                  Don&apos;t have an account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => setAuthMode("signup")}
+                    className="text-emerald-400 font-semibold hover:underline"
+                  >
+                    Sign up
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Clean Corporate Footer */}
       <footer className="border-t border-[#1F2937] bg-[#0B0F19] py-6 px-6 mt-auto">
