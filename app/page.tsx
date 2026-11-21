@@ -1,1436 +1,772 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   PhoneCall,
   Calendar,
-  DollarSign,
-  Activity,
+  ArrowRight,
   Play,
   Pause,
   CheckCircle2,
-  ArrowRight,
+  ShieldCheck,
   Stethoscope,
   Building2,
   Briefcase,
-  GitBranch,
   Bot,
-  MessageSquare,
   Sparkles,
-  PhoneForwarded,
-  Layers,
-  ChevronRight,
-  ChevronDown,
+  Calculator,
+  Volume2,
   Check,
   Zap,
   Clock,
-  Mic,
-  Volume2,
-  Globe,
-  Shield,
-  Sliders,
-  X,
-  Mail,
   Lock,
-  User,
-  LogOut,
   Loader2,
-  Link as LinkIcon
+  PhoneOutgoing,
+  FileCheck2
 } from "lucide-react";
 
-type StepType = "landing" | "onboarding" | "dashboard" | "workflows";
 type NicheType = "dental" | "realestate" | "consulting";
-type VersionType = "Zyntax 2.0" | "Zyntax Beta" | "v1.0 Core";
-type AuthMode = "login" | "signup";
 
-interface CallLog {
+interface ScenarioRecording {
   id: string;
-  caller: string;
-  phone: string;
-  time: string;
-  intent: string;
-  aiReply: string;
-  smsSent: string;
-  status: "Booked" | "Follow-up Sent";
-}
-
-interface TenantProfile {
-  name: string;
   niche: NicheType;
-  phoneLine: string;
-  avgTicket: number;
-  currency: string;
-  defaultGreeting: string;
-  defaultSms: string;
+  badge: string;
+  title: string;
+  duration: string;
+  callerLine: string;
+  aiLine: string;
+  outcome: string;
 }
 
-const NICHE_CONFIGS: Record<NicheType, TenantProfile> = {
+const NICHE_DATA: Record<
+  NicheType,
+  {
+    label: string;
+    avgTicket: number;
+    defaultMissedPerWeek: number;
+    unitLabel: string;
+    crmLabel: string;
+  }
+> = {
   dental: {
-    name: "Dental Clinic Workspace",
-    niche: "dental",
-    phoneLine: "+1 (512) 000-0101",
+    label: "Dental Clinic",
     avgTicket: 250,
-    currency: "$",
-    defaultGreeting:
-      "Thank you for calling our Dental Clinic. I can help you schedule an appointment or emergency visit right away—what day works best for you?",
-    defaultSms:
-      "Your dental appointment slot is reserved! Reply CONFIRM or manage your booking via our calendar link."
+    defaultMissedPerWeek: 12,
+    unitLabel: "Avg patient value",
+    crmLabel: "Dentrix / OpenDental / Google Calendar"
   },
   realestate: {
-    name: "Real Estate Workspace",
-    niche: "realestate",
-    phoneLine: "+1 (512) 000-0202",
+    label: "Real Estate",
     avgTicket: 5000,
-    currency: "$",
-    defaultGreeting:
-      "Hello! Thanks for reaching out about our property listings. Would you like to schedule a private tour or get full property details?",
-    defaultSms:
-      "Thanks for inquiring! Your property tour request is logged. Here is the direct scheduling link for your private showing."
+    defaultMissedPerWeek: 6,
+    unitLabel: "Avg commission value",
+    crmLabel: "Follow Up Boss / HubSpot / Calendar"
   },
   consulting: {
-    name: "Consulting Workspace",
-    niche: "consulting",
-    phoneLine: "+1 (512) 000-0303",
+    label: "Consulting Firm",
     avgTicket: 1500,
-    currency: "$",
-    defaultGreeting:
-      "Welcome to our Advisory Desk. I can qualify your project requirements and book a 1-on-1 discovery call with a senior partner.",
-    defaultSms:
-      "Your discovery call has been scheduled. Check your inbox and this link for the meeting agenda."
+    defaultMissedPerWeek: 8,
+    unitLabel: "Avg retainer value",
+    crmLabel: "Salesforce / Calendly / HubSpot"
   }
 };
 
-const VOICE_PROFILES = [
+const DEMO_RECORDINGS: ScenarioRecording[] = [
   {
-    id: "aria",
-    name: "Aria",
-    tone: "Warm & Empathetic",
-    accent: "US English",
-    latency: "380ms",
-    sampleLine:
-      "Good morning! Thanks for calling. I can help you schedule your visit right away—what day works best for you?"
+    id: "dental-emergency",
+    niche: "dental",
+    badge: "Dental • Emergency Triage",
+    title: "Emergency Tooth Pain & Same-Day Slot",
+    duration: "0:42",
+    callerLine:
+      "Hi, I broke a molar eating lunch and I'm in a lot of pain. Do you have any openings today?",
+    aiLine:
+      "I'm so sorry you're dealing with that pain. Dr. Smith keeps an emergency block open at 3:15 PM today—I've reserved it for you and texted your intake link.",
+    outcome: "Booked $450 Emergency Exam + SMS Sent"
   },
   {
-    id: "marcus",
-    name: "Marcus",
-    tone: "Executive & Direct",
-    accent: "US / Neutral",
-    latency: "410ms",
-    sampleLine:
-      "Hello, you've reached the front desk. Tell me a bit about what you're looking for and I'll match you with an advisor."
+    id: "realestate-tour",
+    niche: "realestate",
+    badge: "Real Estate • Buyer Lead",
+    title: "Luxury Listing Inquiry & Private Tour",
+    duration: "0:51",
+    callerLine:
+      "Hey, I'm calling about the 4-bedroom listing on Oakridge Ave. Is it still available to tour this weekend?",
+    aiLine:
+      "Yes, Oakridge Ave is active! Are you pre-approved or paying cash? Great—I have Saturday at 11:00 AM open with Marcus. Locking that tour in now.",
+    outcome: "Booked $5,000+ Commission Tour"
   },
   {
-    id: "nova",
-    name: "Nova",
-    tone: "Energetic & Fast",
-    accent: "UK / Global",
-    latency: "360ms",
-    sampleLine:
-      "Hi there! Sorry we missed your call. Let's get your slot locked in so you don't have to wait on hold."
+    id: "consulting-discovery",
+    niche: "consulting",
+    badge: "Consulting • Retainer Lead",
+    title: "Inbound B2B Advisory Qualification",
+    duration: "0:38",
+    callerLine:
+      "We're scaling to 40 staff next quarter and need operational restructuring help. How do we start?",
+    aiLine:
+      "We specialize in 30–60 person growth transitions. Let's schedule a 20-minute executive discovery call tomorrow at 2:00 PM—sending the calendar invite now.",
+    outcome: "Booked $1,500+ Strategy Call"
   }
 ];
 
-export default function ZyntaxApp() {
-  const [currentStep, setCurrentStep] = useState<StepType>("landing");
-  const [selectedNiche, setSelectedNiche] = useState<NicheType>("dental");
-  const [selectedVersion, setSelectedVersion] = useState<VersionType>("Zyntax 2.0");
-  const [versionMenuOpen, setVersionMenuOpen] = useState(false);
-
-  // Auth State
-  const [authModalOpen, setAuthModalOpen] = useState(false);
-  const [authMode, setAuthMode] = useState<AuthMode>("signup");
-  const [userEmail, setUserEmail] = useState("");
-  const [userName, setUserName] = useState("");
-  const [userPassword, setUserPassword] = useState("");
-  const [authenticatedUser, setAuthenticatedUser] = useState<{
-    name: string;
-    email: string;
-    provider: string;
+export default function ZyntaxLandingPage() {
+  // Interactive Demo Widget State
+  const [demoPhone, setDemoPhone] = useState("");
+  const [demoNiche, setDemoNiche] = useState<NicheType>("dental");
+  const [isTriggeringCall, setIsTriggeringCall] = useState(false);
+  const [callFeedback, setCallFeedback] = useState<{
+    type: "success" | "error";
+    text: string;
   } | null>(null);
 
-  // Voice Engine Interactive State
-  const [selectedVoiceId, setSelectedVoiceId] = useState("aria");
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [isPlayingEngineSample, setIsPlayingEngineSample] = useState(false);
+  // Playable Audio Scenario State
+  const [playingScenarioId, setPlayingScenarioId] = useState<string | null>(null);
+  const audioTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Editable Workflow Pipeline State (Connected to /api/workflows)
-  const [pickupTrigger, setPickupTrigger] = useState("Instant (0s Missed-Call Intercept)");
-  const [greetingPrompt, setGreetingPrompt] = useState(NICHE_CONFIGS.dental.defaultGreeting);
-  const [smsTemplate, setSmsTemplate] = useState(NICHE_CONFIGS.dental.defaultSms);
-  const [calendarLink, setCalendarLink] = useState("https://cal.com/zyntax-booking");
-  const [isSavingWorkflow, setIsSavingWorkflow] = useState(false);
-  const [workflowSaveStatus, setWorkflowSaveStatus] = useState<string | null>(null);
+  // ROI Calculator State
+  const [roiNiche, setRoiNiche] = useState<NicheType>("dental");
+  const [missedPerWeek, setMissedPerWeek] = useState<number>(12);
 
-  // Dashboard State
-  const [isLiveTakeover, setIsLiveTakeover] = useState(false);
-  const [callListFilter, setCallListFilter] = useState<"all" | "missed" | "confirmed">("all");
-  const [simulatedCallActive, setSimulatedCallActive] = useState(false);
-  const [missedCallsCount, setMissedCallsCount] = useState(0);
-  const [bookingsCount, setBookingsCount] = useState(0);
-  const [callLogs, setCallLogs] = useState<CallLog[]>([]);
+  const activeRoiConfig = NICHE_DATA[roiNiche];
+  const monthlyMissedCalls = missedPerWeek * 4;
+  const monthlyLostRevenue = monthlyMissedCalls * activeRoiConfig.avgTicket;
+  // Conservative 65% recovery rate via instant AI pickup & SMS follow-up
+  const estimatedRecoveredRevenue = Math.round(monthlyLostRevenue * 0.65);
 
-  const tenant = NICHE_CONFIGS[selectedNiche];
-  const recoveredRevenue = bookingsCount * tenant.avgTicket;
-  const activeVoiceProfile = VOICE_PROFILES.find((v) => v.id === selectedVoiceId) || VOICE_PROFILES[0];
-
-  const handleSelectNiche = (niche: NicheType) => {
-    setSelectedNiche(niche);
-    setGreetingPrompt(NICHE_CONFIGS[niche].defaultGreeting);
-    setSmsTemplate(NICHE_CONFIGS[niche].defaultSms);
-    setWorkflowSaveStatus(null);
+  const handleRoiNicheSwitch = (niche: NicheType) => {
+    setRoiNiche(niche);
+    setMissedPerWeek(NICHE_DATA[niche].defaultMissedPerWeek);
   };
 
-  const openAuth = (mode: AuthMode) => {
-    setAuthMode(mode);
-    setAuthModalOpen(true);
-  };
-
-  const handleSocialAuth = (provider: "Google" | "Facebook") => {
-    setAuthenticatedUser({
-      name: `${provider} Account`,
-      email: `user@${provider.toLowerCase()}.com`,
-      provider
-    });
-    setAuthModalOpen(false);
-    setCurrentStep("onboarding");
-  };
-
-  const handleEmailAuth = (e: React.FormEvent) => {
+  // Trigger Live Demo Call (/api/demo-call)
+  const handleTriggerDemoCall = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!userEmail.trim()) return;
-    setAuthenticatedUser({
-      name: userName.trim() || userEmail.split("@")[0],
-      email: userEmail.trim(),
-      provider: "Email"
-    });
-    setAuthModalOpen(false);
-    setCurrentStep("onboarding");
-  };
+    setCallFeedback(null);
 
-  const handleLogout = () => {
-    setAuthenticatedUser(null);
-    setCurrentStep("landing");
-  };
+    if (!demoPhone.trim()) {
+      setCallFeedback({
+        type: "error",
+        text: "Please enter your phone number (e.g., +1 512 555 0199)."
+      });
+      return;
+    }
 
-  // Real API call to app/api/workflows/route.ts
-  const handleSaveWorkflow = async () => {
-    setIsSavingWorkflow(true);
-    setWorkflowSaveStatus(null);
+    setIsTriggeringCall(true);
     try {
-      const res = await fetch("/api/workflows", {
+      const res = await fetch("/api/demo-call", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          niche: selectedNiche,
-          voiceModel: activeVoiceProfile.name,
-          greetingPrompt,
-          smsTemplate,
-          calendarLink
+          phoneNumber: demoPhone.trim(),
+          niche: demoNiche
         })
       });
 
       const data = await res.json();
       if (res.ok && data.success) {
-        setWorkflowSaveStatus("Pipeline Synced to Backend ✓");
+        setCallFeedback({
+          type: "success",
+          text:
+            data.mode === "live_twilio"
+              ? `Calling ${demoPhone} now! Answer your phone to speak with Zyntax AI.`
+              : `Demo call triggered for ${demoPhone}! Listen to the ${NICHE_DATA[demoNiche].label} scenario below while Twilio trial keys connect.`
+        });
       } else {
-        setWorkflowSaveStatus(data.error || "Failed to sync workflow");
+        setCallFeedback({
+          type: "error",
+          text: data.error || "Unable to place test call right now."
+        });
       }
     } catch {
-      setWorkflowSaveStatus("Network error while saving workflow");
+      setCallFeedback({
+        type: "error",
+        text: "Network error. Please try again."
+      });
     } finally {
-      setIsSavingWorkflow(false);
+      setIsTriggeringCall(false);
     }
   };
 
-  const triggerCallSimulation = () => {
-    if (simulatedCallActive) return;
-    setSimulatedCallActive(true);
+  // Toggle Scenario Audio Simulation
+  const toggleScenarioPlayback = (id: string) => {
+    if (audioTimerRef.current) {
+      clearTimeout(audioTimerRef.current);
+    }
 
-    setTimeout(() => {
-      setMissedCallsCount((prev) => prev + 1);
-      setBookingsCount((prev) => prev + 1);
+    if (playingScenarioId === id) {
+      setPlayingScenarioId(null);
+      return;
+    }
 
-      const newLog: CallLog = {
-        id: Date.now().toString(),
-        caller: "Inbound Prospect",
-        phone: "+1 (512) 555-0194",
-        time: "Just now",
-        intent:
-          selectedNiche === "dental"
-            ? "Appointment Inquiry"
-            : selectedNiche === "realestate"
-            ? "Property Tour Request"
-            : "Discovery Call Booking",
-        aiReply: greetingPrompt,
-        smsSent: `${smsTemplate} (${calendarLink})`,
-        status: "Booked"
-      };
-
-      setCallLogs((prev) => [newLog, ...prev]);
-      setSimulatedCallActive(false);
-    }, 1500);
+    setPlayingScenarioId(id);
+    audioTimerRef.current = setTimeout(() => {
+      setPlayingScenarioId(null);
+    }, 8000);
   };
 
+  useEffect(() => {
+    return () => {
+      if (audioTimerRef.current) clearTimeout(audioTimerRef.current);
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col font-sans">
-      {/* Main Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#0B0F19]/90 backdrop-blur-md border-b border-[#1F2937]">
-        <div className="max-w-7xl mx-auto w-full px-6 py-4 flex items-center justify-between">
-          {/* Logo + Version Selector */}
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={() => setCurrentStep("landing")}
-              className="flex items-center space-x-2.5 text-left focus:outline-none"
-            >
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/50 flex items-center justify-center font-black text-emerald-400 text-lg">
-                Z
-              </div>
-              <span className="text-xl font-bold tracking-tight text-white">Zyntax AI</span>
-            </button>
-
-            {/* Version Dropdown Badge */}
-            <div className="relative">
-              <button
-                onClick={() => setVersionMenuOpen(!versionMenuOpen)}
-                className="flex items-center space-x-1.5 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-emerald-400 text-xs font-mono font-semibold px-2.5 py-1 rounded-full transition"
-              >
-                <span>{selectedVersion}</span>
-                <ChevronDown className="w-3 h-3 text-slate-400" />
-              </button>
-
-              {versionMenuOpen && (
-                <div className="absolute left-0 mt-2 w-36 bg-[#111827] border border-[#1F2937] rounded-xl shadow-xl py-1 z-50">
-                  {(["Zyntax 2.0", "Zyntax Beta", "v1.0 Core"] as VersionType[]).map((ver) => (
-                    <button
-                      key={ver}
-                      onClick={() => {
-                        setSelectedVersion(ver);
-                        setVersionMenuOpen(false);
-                      }}
-                      className={`w-full text-left px-3 py-1.5 text-xs font-mono flex items-center justify-between hover:bg-[#1F2937] transition ${
-                        selectedVersion === ver ? "text-emerald-400 font-bold" : "text-slate-300"
-                      }`}
-                    >
-                      <span>{ver}</span>
-                      {selectedVersion === ver && <Check className="w-3 h-3" />}
-                    </button>
-                  ))}
-                </div>
-              )}
+    <div className="min-h-screen bg-[#0B0F19] text-slate-100 flex flex-col font-sans selection:bg-emerald-500/30 selection:text-emerald-300">
+      {/* 1. STICKY TOP CONVERSION NAVBAR */}
+      <header className="sticky top-0 z-50 bg-[#0B0F19]/90 backdrop-blur-md border-b border-[#1F2937]">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          {/* Brand Logo + Version Tag */}
+          <a href="#" className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/50 flex items-center justify-center font-black text-emerald-400 text-lg">
+              Z
             </div>
-          </div>
+            <span className="text-xl font-bold tracking-tight text-white">Zyntax AI</span>
+            <span className="hidden sm:inline-block text-[11px] font-mono font-semibold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+              v2.0 Beta
+            </span>
+          </a>
 
-          {/* Center Nav Links on Landing */}
-          {currentStep === "landing" && (
-            <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
-              <a href="#voice-engine" className="hover:text-emerald-400 transition">
-                Voice Engine
-              </a>
-              <a href="#capabilities" className="hover:text-emerald-400 transition">
-                Capabilities
-              </a>
-              <a href="#live-demo" className="hover:text-emerald-400 transition">
-                Live Preview
-              </a>
-            </nav>
-          )}
+          {/* Navigation Anchors */}
+          <nav className="hidden md:flex items-center space-x-8 text-sm font-medium text-slate-300">
+            <a href="#live-demo" className="hover:text-emerald-400 transition">
+              Live Demo
+            </a>
+            <a href="#roi-calculator" className="hover:text-emerald-400 transition">
+              ROI Calculator
+            </a>
+            <a href="#pricing" className="hover:text-emerald-400 transition">
+              Pilot Pricing
+            </a>
+          </nav>
 
-          {/* Right Auth / Workspace Controls */}
+          {/* Top Action CTAs */}
           <div className="flex items-center space-x-3">
-            {authenticatedUser ? (
-              <>
-                <button
-                  onClick={() => setCurrentStep("dashboard")}
-                  className="hidden sm:inline-flex items-center space-x-2 text-xs font-medium text-slate-200 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] px-3.5 py-2 rounded-lg transition"
-                >
-                  <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                  <span>{authenticatedUser.name}</span>
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="text-xs text-slate-400 hover:text-white bg-[#111827] border border-[#1F2937] p-2 rounded-lg transition"
-                  title="Sign out"
-                >
-                  <LogOut className="w-4 h-4" />
-                </button>
-              </>
-            ) : (
-              <>
-                <button
-                  onClick={() => openAuth("login")}
-                  className="text-sm font-semibold text-slate-300 hover:text-white px-4 py-2 rounded-lg transition"
-                >
-                  Log in
-                </button>
-                <button
-                  onClick={() => openAuth("signup")}
-                  className="bg-[#111827] hover:bg-[#1F2937] border border-emerald-500/40 text-emerald-400 text-sm font-semibold px-4 py-2 rounded-lg transition"
-                >
-                  Sign up
-                </button>
-              </>
-            )}
+            <a
+              href="/login"
+              className="text-sm font-semibold text-slate-300 hover:text-white px-3.5 py-2 rounded-lg transition"
+            >
+              Sign In
+            </a>
+            <a
+              href="/signup"
+              className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs sm:text-sm px-4 sm:px-5 py-2.5 rounded-xl transition flex items-center space-x-1.5 shadow-lg shadow-emerald-500/20"
+            >
+              <span>Start 7-Day Free Pilot</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 flex flex-col">
-        {/* STEP 1: LANDING PAGE */}
-        {currentStep === "landing" && (
-          <div className="flex-1 flex flex-col">
-            <section
-              id="live-demo"
-              className="max-w-7xl mx-auto px-6 pt-16 pb-20 grid lg:grid-cols-2 gap-14 items-center"
-            >
-              <div>
-                <div className="inline-flex items-center space-x-2 bg-[#111827] border border-emerald-500/30 px-3.5 py-1.5 rounded-full mb-6">
-                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
-                    {selectedVersion} • Neural Voice Receptionist
-                  </span>
-                </div>
-
-                <h1 className="text-5xl lg:text-6xl font-black tracking-tight text-white leading-tight mb-6">
-                  Automate the Calls. <br />
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
-                    Grow Your Business.
-                  </span>
-                </h1>
-
-                <p className="text-lg text-slate-400 mb-9 max-w-xl leading-relaxed">
-                  An autonomous AI receptionist that answers missed calls, qualifies inquiries, books appointments, and triggers instant SMS follow-ups in real time.
-                </p>
-
-                {/* Primary Hero CTA Zone */}
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-10">
-                  <button
-                    onClick={() => {
-                      if (authenticatedUser) {
-                        setCurrentStep("onboarding");
-                      } else {
-                        openAuth("signup");
-                      }
-                    }}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-4 rounded-xl font-extrabold text-base transition flex items-center justify-center space-x-2.5 shadow-xl shadow-emerald-500/25"
-                  >
-                    <span>Get Started Free</span>
-                    <ArrowRight className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    onClick={() => setCurrentStep("dashboard")}
-                    className="bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-6 py-4 rounded-xl font-semibold text-base transition flex items-center justify-center space-x-2"
-                  >
-                    <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
-                    <span>Explore Live Console</span>
-                  </button>
-                </div>
-
-                {/* Quick OAuth Strip */}
-                {!authenticatedUser && (
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400 pb-8 border-b border-[#1F2937]/80">
-                    <span>Instant access with:</span>
-                    <button
-                      onClick={() => handleSocialAuth("Google")}
-                      className="inline-flex items-center space-x-2 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-3 py-1.5 rounded-lg font-medium transition"
-                    >
-                      <span className="font-bold text-emerald-400">G</span>
-                      <span>Google</span>
-                    </button>
-                    <button
-                      onClick={() => handleSocialAuth("Facebook")}
-                      className="inline-flex items-center space-x-2 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-3 py-1.5 rounded-lg font-medium transition"
-                    >
-                      <span className="font-bold text-cyan-400">f</span>
-                      <span>Facebook</span>
-                    </button>
-                    <button
-                      onClick={() => openAuth("signup")}
-                      className="inline-flex items-center space-x-2 bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 px-3 py-1.5 rounded-lg font-medium transition"
-                    >
-                      <Mail className="w-3.5 h-3.5 text-slate-400" />
-                      <span>Email</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Core Highlights */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 pt-6 text-xs text-slate-400 font-medium">
-                  <div className="flex items-center space-x-2.5">
-                    <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Sub-500ms Voice Latency</span>
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    <Clock className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>24/7 Missed-Call Pickup</span>
-                  </div>
-                  <div className="flex items-center space-x-2.5">
-                    <Bot className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>Calendar &amp; SMS Sync</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Interactive AI Voice Simulation Card */}
-              <div className="relative">
-                <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 rounded-2xl blur-xl opacity-70"></div>
-                <div className="relative bg-[#111827] border border-[#1F2937] rounded-2xl p-6 shadow-2xl">
-                  <div className="flex items-center justify-between pb-4 border-b border-[#1F2937] mb-6">
-                    <div className="flex items-center space-x-3">
-                      <div className="relative">
-                        <div className="w-10 h-10 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center text-cyan-300 font-bold">
-                          Z
-                        </div>
-                        <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#111827] rounded-full"></span>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-white">Zyntax Voice Agent</h4>
-                        <p className="text-xs text-slate-400">Live Call Conversation Flow</p>
-                      </div>
-                    </div>
-                    <span className="bg-cyan-950/80 text-cyan-400 text-xs px-2.5 py-1 rounded border border-cyan-800/50 font-mono">
-                      {selectedVersion}
-                    </span>
-                  </div>
-
-                  {/* Conversation Flow */}
-                  <div className="space-y-4 mb-6">
-                    <div className="bg-[#0B0F19] p-3.5 rounded-xl border border-[#1F2937] text-xs">
-                      <div className="text-slate-400 mb-1 flex items-center justify-between font-mono">
-                        <span>Inbound Caller</span>
-                        <span>0:03</span>
-                      </div>
-                      <p className="text-slate-200">
-                        &quot;Hi, I missed your front desk earlier. Can I book an appointment for tomorrow morning?&quot;
-                      </p>
-                    </div>
-
-                    <div className="bg-emerald-950/30 p-3.5 rounded-xl border border-emerald-500/30 text-xs">
-                      <div className="text-emerald-400 mb-1 flex items-center justify-between font-mono">
-                        <span className="flex items-center gap-1 font-semibold">
-                          <Bot className="w-3.5 h-3.5" /> Zyntax AI
-                        </span>
-                        <span>0:06</span>
-                      </div>
-                      <p className="text-emerald-100">
-                        &quot;I can help you right away. We have an opening tomorrow at 10:30 AM—shall I lock that slot and text you the confirmation?&quot;
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Interactive Waveform Bar */}
-                  <div className="bg-[#0B0F19] p-4 rounded-xl border border-[#1F2937] flex items-center justify-between space-x-3">
-                    <button
-                      onClick={() => setIsPlayingAudio(!isPlayingAudio)}
-                      className="w-10 h-10 rounded-full bg-emerald-500 text-slate-950 flex items-center justify-center hover:bg-emerald-400 transition shrink-0"
-                      aria-label="Toggle audio waveform preview"
-                    >
-                      {isPlayingAudio ? (
-                        <Pause className="w-5 h-5 fill-slate-950" />
-                      ) : (
-                        <Play className="w-5 h-5 fill-slate-950 ml-0.5" />
-                      )}
-                    </button>
-                    <div className="flex-1 flex items-center space-x-1 h-8">
-                      {[40, 65, 80, 30, 95, 70, 50, 85, 45, 90, 60, 35, 75, 90, 50, 40, 70, 60].map((h, i) => (
-                        <div
-                          key={i}
-                          className={`flex-1 rounded-full transition-all duration-300 ${
-                            isPlayingAudio ? "bg-cyan-400 animate-pulse" : "bg-slate-700"
-                          }`}
-                          style={{ height: isPlayingAudio ? `${h}%` : "30%" }}
-                        ></div>
-                      ))}
-                    </div>
-                    <span className="text-xs font-mono text-slate-400">
-                      {isPlayingAudio ? "Playing" : "Preview"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            {/* DEDICATED VOICE FEATURE ENGINE SECTION */}
-            <section id="voice-engine" className="border-t border-[#1F2937] bg-[#0D1322] py-20 px-6">
-              <div className="max-w-7xl mx-auto">
-                <div className="text-center max-w-2xl mx-auto mb-14">
-                  <span className="text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
-                    Zyntax Voice Feature Engine
-                  </span>
-                  <h2 className="text-3xl sm:text-4xl font-black text-white mt-4 mb-3">
-                    Engineered for Natural Human Conversations
-                  </h2>
-                  <p className="text-sm text-slate-400">
-                    Switch voice personas, test response cadence, and explore the core telephony features built inside {selectedVersion}.
-                  </p>
-                </div>
-
-                {/* Interactive Voice Persona Tester */}
-                <div className="bg-[#111827] border border-[#1F2937] rounded-2xl p-6 lg:p-8 mb-12 shadow-xl">
-                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 pb-6 border-b border-[#1F2937]">
-                    <div>
-                      <h3 className="text-base font-bold text-white flex items-center gap-2">
-                        <Mic className="w-4 h-4 text-emerald-400" />
-                        <span>Select Neural Voice Model</span>
-                      </h3>
-                      <p className="text-xs text-slate-400 mt-1">
-                        Choose a voice profile tailored to your front-desk brand tone.
-                      </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                      {VOICE_PROFILES.map((voice) => (
-                        <button
-                          key={voice.id}
-                          onClick={() => {
-                            setSelectedVoiceId(voice.id);
-                            setIsPlayingEngineSample(true);
-                          }}
-                          className={`px-4 py-2.5 rounded-xl border text-left transition ${
-                            selectedVoiceId === voice.id
-                              ? "bg-emerald-500/10 border-emerald-500 text-white"
-                              : "bg-[#0B0F19] border-[#1F2937] text-slate-400 hover:border-slate-700"
-                          }`}
-                        >
-                          <div className="flex items-center justify-between gap-4">
-                            <span className="font-bold text-xs text-white">{voice.name}</span>
-                            <span className="text-[10px] font-mono text-emerald-400">{voice.latency}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-400 mt-0.5">{voice.tone}</div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Active Voice Sample Bar */}
-                  <div className="pt-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-                    <div className="flex items-start space-x-4">
-                      <button
-                        onClick={() => setIsPlayingEngineSample(!isPlayingEngineSample)}
-                        className="w-12 h-12 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 flex items-center justify-center shrink-0 transition shadow-lg shadow-cyan-500/20"
-                      >
-                        {isPlayingEngineSample ? (
-                          <Pause className="w-5 h-5 fill-slate-950" />
-                        ) : (
-                          <Volume2 className="w-5 h-5" />
-                        )}
-                      </button>
-                      <div>
-                        <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 mb-1">
-                          <span>Active Profile: {activeVoiceProfile.name}</span>
-                          <span>•</span>
-                          <span>{activeVoiceProfile.accent}</span>
-                        </div>
-                        <p className="text-sm text-slate-200 italic">
-                          &quot;{activeVoiceProfile.sampleLine}&quot;
-                        </p>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => {
-                        if (authenticatedUser) {
-                          setCurrentStep("onboarding");
-                        } else {
-                          openAuth("signup");
-                        }
-                      }}
-                      className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs px-5 py-3 rounded-xl transition shrink-0 flex items-center gap-2"
-                    >
-                      <span>Deploy With {activeVoiceProfile.name}</span>
-                      <ArrowRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {/* 6 Core Voice Engine Capabilities Grid */}
-                <div id="capabilities" className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {[
-                    {
-                      icon: Zap,
-                      title: "Sub-500ms Response Turnaround",
-                      desc: "Streaming speech-to-intent architecture eliminates awkward robotic pauses during live phone calls."
-                    },
-                    {
-                      icon: Mic,
-                      title: "Smart Barge-In & Interruption",
-                      desc: "If a caller interrupts mid-sentence to change dates or ask a question, the AI stops and adapts immediately."
-                    },
-                    {
-                      icon: Globe,
-                      title: "Multi-Language Auto-Detection",
-                      desc: "Automatically detects caller language and switches seamlessly without manual IVR menu prompts."
-                    },
-                    {
-                      icon: PhoneForwarded,
-                      title: "Warm Call Transfer & Escalation",
-                      desc: "Routes urgent VIP or emergency cases straight to your mobile phone with a spoken context summary."
-                    },
-                    {
-                      icon: Sliders,
-                      title: "Custom Knowledge Base Grounding",
-                      desc: "Answers pricing, insurance, property, or service FAQs directly from your uploaded business rules."
-                    },
-                    {
-                      icon: Shield,
-                      title: "Encrypted Call & Transcript Logs",
-                      desc: "Every call recording, summary, and booking trigger is stored securely inside your isolated workspace."
-                    }
-                  ].map((feat, idx) => {
-                    const Icon = feat.icon;
-                    return (
-                      <div
-                        key={idx}
-                        className="bg-[#111827] border border-[#1F2937] hover:border-emerald-500/30 p-6 rounded-2xl transition"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-4">
-                          <Icon className="w-5 h-5" />
-                        </div>
-                        <h4 className="font-bold text-white text-base mb-2">{feat.title}</h4>
-                        <p className="text-xs text-slate-400 leading-relaxed">{feat.desc}</p>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </section>
-          </div>
-        )}
-
-        {/* STEP 2: NICHE ONBOARDING SELECTION */}
-        {currentStep === "onboarding" && (
-          <div className="flex-1 flex items-center justify-center p-6">
-            <div className="max-w-3xl w-full bg-[#111827] border border-[#1F2937] rounded-2xl p-8 shadow-2xl">
-              <div className="text-center mb-10">
-                <span className="text-emerald-400 text-xs font-bold uppercase tracking-wider bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-                  Workspace Configuration
-                </span>
-                <h2 className="text-3xl font-extrabold text-white mt-4 mb-2">Select your business vertical</h2>
-                <p className="text-sm text-slate-400">
-                  Choose your industry to configure the AI receptionist prompts, booking logic, and pipeline values.
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-3 gap-5 mb-8">
-                {/* Dental Clinic */}
-                <div
-                  onClick={() => handleSelectNiche("dental")}
-                  className={`cursor-pointer rounded-xl p-5 border-2 transition-all relative flex flex-col justify-between ${
-                    selectedNiche === "dental"
-                      ? "border-emerald-500 bg-emerald-950/20 shadow-lg shadow-emerald-500/10"
-                      : "border-[#1F2937] bg-[#0B0F19] hover:border-slate-700"
-                  }`}
-                >
-                  {selectedNiche === "dental" && (
-                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-slate-950">
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
-                  )}
-                  <div>
-                    <div className="w-12 h-12 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
-                      <Stethoscope className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-white text-base mb-1">Dental Clinic</h3>
-                    <p className="text-xs text-slate-400 mb-4">
-                      Patient call recovery, appointment booking &amp; clinic calendar sync.
-                    </p>
-                  </div>
-                  <span className="inline-block bg-[#111827] border border-[#1F2937] text-emerald-400 text-[11px] font-mono px-2.5 py-1 rounded text-center font-semibold">
-                    Est. Case Value: $250
-                  </span>
-                </div>
-
-                {/* Real Estate */}
-                <div
-                  onClick={() => handleSelectNiche("realestate")}
-                  className={`cursor-pointer rounded-xl p-5 border-2 transition-all relative flex flex-col justify-between ${
-                    selectedNiche === "realestate"
-                      ? "border-emerald-500 bg-emerald-950/20 shadow-lg shadow-emerald-500/10"
-                      : "border-[#1F2937] bg-[#0B0F19] hover:border-slate-700"
-                  }`}
-                >
-                  {selectedNiche === "realestate" && (
-                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-slate-950">
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
-                  )}
-                  <div>
-                    <div className="w-12 h-12 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 mb-4">
-                      <Building2 className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-white text-base mb-1">Real Estate</h3>
-                    <p className="text-xs text-slate-400 mb-4">
-                      Buyer inquiries, property tour scheduling &amp; instant lead capture.
-                    </p>
-                  </div>
-                  <span className="inline-block bg-[#111827] border border-[#1F2937] text-cyan-400 text-[11px] font-mono px-2.5 py-1 rounded text-center font-semibold">
-                    Est. Deal Value: $5,000
-                  </span>
-                </div>
-
-                {/* Consulting */}
-                <div
-                  onClick={() => handleSelectNiche("consulting")}
-                  className={`cursor-pointer rounded-xl p-5 border-2 transition-all relative flex flex-col justify-between ${
-                    selectedNiche === "consulting"
-                      ? "border-emerald-500 bg-emerald-950/20 shadow-lg shadow-emerald-500/10"
-                      : "border-[#1F2937] bg-[#0B0F19] hover:border-slate-700"
-                  }`}
-                >
-                  {selectedNiche === "consulting" && (
-                    <div className="absolute top-3 right-3 w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-slate-950">
-                      <Check className="w-3.5 h-3.5 stroke-[3]" />
-                    </div>
-                  )}
-                  <div>
-                    <div className="w-12 h-12 rounded-lg bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-4">
-                      <Briefcase className="w-6 h-6" />
-                    </div>
-                    <h3 className="font-bold text-white text-base mb-1">Consulting Firm</h3>
-                    <p className="text-xs text-slate-400 mb-4">
-                      Client qualification, discovery call scheduling &amp; follow-up routing.
-                    </p>
-                  </div>
-                  <span className="inline-block bg-[#111827] border border-[#1F2937] text-purple-400 text-[11px] font-mono px-2.5 py-1 rounded text-center font-semibold">
-                    Est. Retainer: $1,500
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <button
-                  onClick={() => setCurrentStep("landing")}
-                  className="text-xs text-slate-400 hover:text-white transition"
-                >
-                  ← Back
-                </button>
-                <button
-                  onClick={() => setCurrentStep("dashboard")}
-                  className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-8 py-3 rounded-xl font-bold text-sm transition flex items-center space-x-2 shadow-lg shadow-emerald-500/20"
-                >
-                  <span>Continue to Console</span>
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 3: TELEMETRY DASHBOARD */}
-        {currentStep === "dashboard" && (
-          <div className="flex-1 flex flex-col md:flex-row">
-            {/* Sidebar */}
-            <aside className="w-full md:w-64 bg-[#111827] border-r border-[#1F2937] p-4 flex flex-col justify-between">
-              <div>
-                <div className="px-2 py-3 mb-6 border-b border-[#1F2937]">
-                  <h3 className="text-xs font-bold text-white uppercase tracking-wide">{tenant.name}</h3>
-                  <p className="text-[11px] text-emerald-400 font-mono mt-0.5">
-                    {selectedVersion} • {activeVoiceProfile.name}
-                  </p>
-                </div>
-
-                <div className="space-y-1 text-xs">
-                  <button className="w-full text-left px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-semibold border border-emerald-500/20 flex items-center space-x-2.5">
-                    <Activity className="w-4 h-4" />
-                    <span>Live Telemetry</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentStep("workflows")}
-                    className="w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-[#1F2937] transition flex items-center space-x-2.5"
-                  >
-                    <GitBranch className="w-4 h-4 text-slate-400" />
-                    <span>Edit AI Pipeline</span>
-                  </button>
-                  <button
-                    onClick={() => setCurrentStep("onboarding")}
-                    className="w-full text-left px-3 py-2 rounded-lg text-slate-300 hover:bg-[#1F2937] transition flex items-center space-x-2.5"
-                  >
-                    <Sliders className="w-4 h-4 text-slate-400" />
-                    <span>Switch Vertical</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-3 pt-4 border-t border-[#1F2937] text-[11px]">
-                <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] space-y-1.5">
-                  <div className="flex justify-between text-slate-400">
-                    <span>Routing Line:</span>
-                    <span className="font-mono text-cyan-400">Ready</span>
-                  </div>
-                  <div className="flex justify-between text-slate-400">
-                    <span>Voice Profile:</span>
-                    <span className="text-emerald-400">{activeVoiceProfile.name}</span>
-                  </div>
-                </div>
-              </div>
-            </aside>
-
-            {/* Main Dashboard Area */}
-            <div className="flex-1 p-6 space-y-6 overflow-y-auto">
-              {/* Top Header */}
-              <div className="flex flex-col lg:flex-row justify-between lg:items-center gap-4 bg-[#111827] p-5 rounded-xl border border-[#1F2937]">
-                <div>
-                  <h2 className="text-xl font-bold text-white">{tenant.name}</h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Assigned Line: <span className="font-mono text-cyan-400">{tenant.phoneLine}</span>
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    onClick={triggerCallSimulation}
-                    className="bg-cyan-500/10 border border-cyan-500/40 text-cyan-400 hover:bg-cyan-500/20 px-3.5 py-2 rounded-lg text-xs font-semibold flex items-center gap-2 transition"
-                  >
-                    <PhoneForwarded className="w-3.5 h-3.5" />
-                    <span>{simulatedCallActive ? "Processing Test Call..." : "Simulate Inbound Call"}</span>
-                  </button>
-
-                  <div className="flex items-center space-x-2 bg-[#0B0F19] px-3 py-1.5 rounded-lg border border-[#1F2937]">
-                    <span className="text-xs text-slate-300">Manual Takeover</span>
-                    <button
-                      onClick={() => setIsLiveTakeover(!isLiveTakeover)}
-                      className={`w-9 h-5 rounded-full transition-colors p-0.5 ${
-                        isLiveTakeover ? "bg-amber-500" : "bg-slate-700"
-                      }`}
-                    >
-                      <div
-                        className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                          isLiveTakeover ? "translate-x-4" : "translate-x-0"
-                        }`}
-                      ></div>
-                    </button>
-                  </div>
-
-                  <button
-                    onClick={() => setCurrentStep("workflows")}
-                    className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg text-xs flex items-center gap-1.5 transition"
-                  >
-                    <span>Edit Pipeline</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-
-              {/* 3 Real Metric KPI Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="bg-[#111827] border border-[#1F2937] p-5 rounded-xl">
-                  <div className="flex justify-between items-center text-slate-400 mb-2">
-                    <span className="text-xs font-medium uppercase">Calls Intercepted</span>
-                    <PhoneCall className="w-4 h-4 text-cyan-400" />
-                  </div>
-                  <div className="text-3xl font-black text-white">{missedCallsCount}</div>
-                  <div className="text-xs text-slate-400 mt-2">
-                    {missedCallsCount === 0
-                      ? "Waiting for inbound call activity"
-                      : "100% answered automatically"}
-                  </div>
-                </div>
-
-                <div className="bg-[#111827] border border-[#1F2937] p-5 rounded-xl">
-                  <div className="flex justify-between items-center text-slate-400 mb-2">
-                    <span className="text-xs font-medium uppercase">
-                      {selectedNiche === "realestate" ? "Tours Scheduled" : "Confirmed Bookings"}
-                    </span>
-                    <Calendar className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div className="text-3xl font-black text-white">{bookingsCount}</div>
-                  <div className="text-xs text-slate-400 mt-2">
-                    {bookingsCount === 0 ? "No bookings recorded yet" : "Synced to active calendar"}
-                  </div>
-                </div>
-
-                <div className="bg-gradient-to-br from-emerald-950/40 via-[#111827] to-[#111827] border border-emerald-500/40 p-5 rounded-xl">
-                  <div className="flex justify-between items-center text-emerald-400 mb-2">
-                    <span className="text-xs font-bold uppercase tracking-wider">Recovered Pipeline</span>
-                    <DollarSign className="w-4 h-4" />
-                  </div>
-                  <div className="text-3xl font-black text-emerald-400 font-mono">
-                    {tenant.currency}
-                    {recoveredRevenue.toLocaleString()}
-                  </div>
-                  <div className="text-xs text-slate-400 mt-2">
-                    Calculated at <span className="text-white font-bold">{tenant.currency}{tenant.avgTicket}</span> per booking
-                  </div>
-                </div>
-              </div>
-
-              {/* Workstation Split View */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-                {/* Left: Live Call Log */}
-                <div className="lg:col-span-7 bg-[#111827] border border-[#1F2937] rounded-xl p-5">
-                  <div className="flex items-center justify-between pb-4 border-b border-[#1F2937] mb-4">
-                    <h3 className="font-bold text-sm text-white">Live Call &amp; SMS Log</h3>
-                    <div className="flex gap-1 bg-[#0B0F19] p-1 rounded-lg border border-[#1F2937] text-[11px]">
-                      {(["all", "missed", "confirmed"] as const).map((filter) => (
-                        <button
-                          key={filter}
-                          onClick={() => setCallListFilter(filter)}
-                          className={`px-2.5 py-0.5 rounded capitalize ${
-                            callListFilter === filter ? "bg-emerald-500 text-slate-950 font-bold" : "text-slate-400"
-                          }`}
-                        >
-                          {filter}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {callLogs.length === 0 ? (
-                    <div className="bg-[#0B0F19] border border-dashed border-[#1F2937] rounded-xl p-8 text-center">
-                      <PhoneCall className="w-8 h-8 text-slate-600 mx-auto mb-3" />
-                      <p className="text-xs font-semibold text-slate-300">No calls logged yet</p>
-                      <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto">
-                        Click &quot;Simulate Inbound Call&quot; at the top right to test your edited AI greeting and SMS workflow.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {callLogs.map((call) => (
-                        <div
-                          key={call.id}
-                          className="bg-[#0B0F19] border border-[#1F2937] p-3.5 rounded-lg flex items-center justify-between"
-                        >
-                          <div className="flex items-center space-x-3">
-                            <div className="w-8 h-8 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center font-bold text-xs text-emerald-400">
-                              AI
-                            </div>
-                            <div>
-                              <div className="font-semibold text-xs text-white">{call.caller}</div>
-                              <div className="text-[11px] text-slate-400 font-mono">
-                                {call.phone} • {call.intent}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                              {call.status}
-                            </span>
-                            <div className="text-[10px] text-slate-500 mt-1">{call.time}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                {/* Right: AI Inspector */}
-                <div className="lg:col-span-5 bg-[#111827] border border-[#1F2937] rounded-xl p-5 flex flex-col justify-between">
-                  <div>
-                    <div className="flex items-center justify-between pb-3 border-b border-[#1F2937] mb-4">
-                      <div className="flex items-center space-x-2">
-                        <Sparkles className="w-4 h-4 text-emerald-400" />
-                        <h4 className="font-bold text-xs uppercase tracking-wider text-white">AI Call Inspector</h4>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/30">
-                        {callLogs.length > 0 ? "Active Session" : "Idle"}
-                      </span>
-                    </div>
-
-                    {callLogs.length === 0 ? (
-                      <div className="text-xs text-slate-400 py-8 text-center">
-                        Simulate an incoming call to inspect how your configured AI prompt and SMS template execute live.
-                      </div>
-                    ) : (
-                      <div className="space-y-3 text-xs">
-                        <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] space-y-1.5">
-                          <div className="flex justify-between text-slate-400">
-                            <span>Voice Model:</span>
-                            <span className="text-emerald-400 font-medium">{activeVoiceProfile.name}</span>
-                          </div>
-                          <div className="flex justify-between text-slate-400">
-                            <span>Pickup Rule:</span>
-                            <span className="text-cyan-400 font-medium">{pickupTrigger}</span>
-                          </div>
-                        </div>
-
-                        <div className="bg-emerald-950/20 p-3 rounded-lg border border-emerald-500/30 text-emerald-200">
-                          <span className="text-[10px] text-emerald-400 block font-mono mb-1">Spoken AI Greeting</span>
-                          &quot;{callLogs[0].aiReply}&quot;
-                        </div>
-
-                        <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] text-slate-300">
-                          <span className="text-[10px] text-cyan-400 block font-mono mb-1">Dispatched SMS Payload</span>
-                          &quot;{callLogs[0].smsSent}&quot;
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] text-xs space-y-1.5 mt-4">
-                    <div className="font-bold text-slate-300 text-[11px] mb-1">Active Pipeline Rules:</div>
-                    <div className="flex items-center text-slate-400 gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Custom AI greeting prompt loaded</span>
-                    </div>
-                    <div className="flex items-center text-slate-400 gap-2">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Calendar link: {calendarLink}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* STEP 4: EDITABLE WORKFLOW AUTOMATION ENGINE (CONNECTED TO /api/workflows) */}
-        {currentStep === "workflows" && (
-          <div className="flex-1 p-6 max-w-6xl mx-auto w-full space-y-6">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 pb-4 border-b border-[#1F2937]">
-              <div>
-                <button
-                  onClick={() => setCurrentStep("dashboard")}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 transition mb-1 flex items-center gap-1"
-                >
-                  ← Back to Telemetry Console
-                </button>
-                <h2 className="text-2xl font-black text-white">Edit AI Automation Pipeline</h2>
-                <p className="text-xs text-slate-400">
-                  Customize your voice greeting, automated SMS message, and calendar booking webhook.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {workflowSaveStatus && (
-                  <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3 py-1.5 rounded-lg">
-                    {workflowSaveStatus}
-                  </span>
-                )}
-                <button
-                  onClick={handleSaveWorkflow}
-                  disabled={isSavingWorkflow}
-                  className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-bold px-5 py-2.5 rounded-xl text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition"
-                >
-                  {isSavingWorkflow ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Sparkles className="w-4 h-4" />
-                  )}
-                  <span>{isSavingWorkflow ? "Syncing..." : "Save & Apply Pipeline"}</span>
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              {/* Left Column: Interactive Editable Pipeline Nodes */}
-              <div className="lg:col-span-7 bg-[#111827] border border-[#1F2937] rounded-xl p-6">
-                <h3 className="font-bold text-sm text-white mb-6 flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-emerald-400" />
-                  <span>Editable Routing Pipeline ({selectedVersion})</span>
-                </h3>
-
-                <div className="space-y-3">
-                  {/* Node 01: Pickup Trigger */}
-                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="font-mono text-xs font-bold text-slate-500">01</span>
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-cyan-400">
-                          <PhoneCall className="w-4 h-4" />
-                        </div>
-                        <div className="font-bold text-xs text-white">Trigger: Inbound / Missed Call</div>
-                      </div>
-                      <span className="text-[10px] font-mono text-cyan-400">Active</span>
-                    </div>
-                    <select
-                      value={pickupTrigger}
-                      onChange={(e) => setPickupTrigger(e.target.value)}
-                      className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none"
-                    >
-                      <option value="Instant (0s Missed-Call Intercept)">Instant (0s Missed-Call Intercept)</option>
-                      <option value="After 2 Rings (Overflow Receptionist)">After 2 Rings (Overflow Receptionist)</option>
-                      <option value="After-Hours & Weekend Mode">After-Hours &amp; Weekend Mode</option>
-                    </select>
-                  </div>
-
-                  <div className="flex justify-center py-0.5">
-                    <div className="w-0.5 h-4 bg-[#1F2937]"></div>
-                  </div>
-
-                  {/* Node 02: Editable AI Greeting Prompt */}
-                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="font-mono text-xs font-bold text-slate-500">02</span>
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-emerald-400">
-                          <Bot className="w-4 h-4" />
-                        </div>
-                        <div className="font-bold text-xs text-white">
-                          AI Voice Greeting Prompt ({activeVoiceProfile.name})
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-400">Editable</span>
-                    </div>
-                    <textarea
-                      rows={3}
-                      value={greetingPrompt}
-                      onChange={(e) => setGreetingPrompt(e.target.value)}
-                      placeholder="Enter what Zyntax AI speaks when answering a call..."
-                      className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg p-3 text-xs text-slate-200 focus:outline-none leading-relaxed"
-                    />
-                  </div>
-
-                  <div className="flex justify-center py-0.5">
-                    <div className="w-0.5 h-4 bg-[#1F2937]"></div>
-                  </div>
-
-                  {/* Node 03: Editable SMS Template */}
-                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="font-mono text-xs font-bold text-slate-500">03</span>
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-purple-400">
-                          <MessageSquare className="w-4 h-4" />
-                        </div>
-                        <div className="font-bold text-xs text-white">Automated SMS Follow-Up Template</div>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-400">Editable</span>
-                    </div>
-                    <textarea
-                      rows={2}
-                      value={smsTemplate}
-                      onChange={(e) => setSmsTemplate(e.target.value)}
-                      placeholder="Enter automated text message sent to caller..."
-                      className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg p-3 text-xs text-slate-200 focus:outline-none leading-relaxed"
-                    />
-                  </div>
-
-                  <div className="flex justify-center py-0.5">
-                    <div className="w-0.5 h-4 bg-[#1F2937]"></div>
-                  </div>
-
-                  {/* Node 04: Calendar / CRM Sync URL */}
-                  <div className="bg-[#0B0F19] border border-[#1F2937] p-4 rounded-xl space-y-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <span className="font-mono text-xs font-bold text-slate-500">04</span>
-                        <div className="w-8 h-8 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center text-amber-400">
-                          <GitBranch className="w-4 h-4" />
-                        </div>
-                        <div className="font-bold text-xs text-white">Calendar &amp; CRM Booking Link</div>
-                      </div>
-                      <span className="text-[10px] font-mono text-emerald-400">Webhook / URL</span>
-                    </div>
-                    <div className="relative">
-                      <LinkIcon className="w-3.5 h-3.5 text-slate-500 absolute left-3 top-2.5" />
-                      <input
-                        type="url"
-                        value={calendarLink}
-                        onChange={(e) => setCalendarLink(e.target.value)}
-                        placeholder="https://cal.com/your-link"
-                        className="w-full bg-[#111827] border border-[#1F2937] focus:border-emerald-500 rounded-lg pl-9 pr-3 py-2 text-xs text-slate-200 font-mono focus:outline-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Live Session Stats & Execution Log */}
-              <div className="lg:col-span-5 space-y-6">
-                <div className="bg-[#111827] border border-[#1F2937] rounded-xl p-6">
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-4">
-                    Session Telemetry
-                  </h3>
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] text-center">
-                      <div className="text-xl font-bold text-white">{missedCallsCount}</div>
-                      <div className="text-[10px] text-slate-400 mt-1">Calls Handled</div>
-                    </div>
-                    <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] text-center">
-                      <div className="text-xl font-bold text-white">{bookingsCount}</div>
-                      <div className="text-[10px] text-slate-400 mt-1">Bookings</div>
-                    </div>
-                    <div className="bg-[#0B0F19] p-3 rounded-lg border border-[#1F2937] text-center">
-                      <div className="text-xl font-bold text-emerald-400">
-                        {missedCallsCount > 0 ? "100%" : "0%"}
-                      </div>
-                      <div className="text-[10px] text-slate-400 mt-1">Response Rate</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-[#111827] border border-[#1F2937] rounded-xl p-6">
-                  <h3 className="font-bold text-xs uppercase tracking-wider text-slate-400 mb-4">
-                    Execution Log
-                  </h3>
-                  {callLogs.length === 0 ? (
-                    <p className="text-xs text-slate-500">
-                      Save your pipeline, then go back to the Console and click &quot;Simulate Inbound Call&quot; to test your custom prompt &amp; SMS.
-                    </p>
-                  ) : (
-                    <div className="space-y-3 text-xs">
-                      {callLogs.map((log) => (
-                        <div
-                          key={log.id}
-                          className="flex items-start justify-between border-b border-[#1F2937] pb-2 last:border-0 last:pb-0"
-                        >
-                          <div>
-                            <div className="font-medium text-white">Call Routed &amp; SMS Sent</div>
-                            <div className="text-[10px] text-slate-400">{log.intent}</div>
-                          </div>
-                          <span className="text-[10px] text-slate-500 font-mono">{log.time}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </main>
-
-      {/* AUTH MODAL */}
-      {authModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111827] border border-[#1F2937] rounded-2xl max-w-md w-full p-6 sm:p-8 relative shadow-2xl">
-            <button
-              onClick={() => setAuthModalOpen(false)}
-              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1.5 rounded-lg bg-[#0B0F19] border border-[#1F2937]"
-              aria-label="Close modal"
-            >
-              <X className="w-4 h-4" />
-            </button>
-
-            <div className="flex items-center space-x-2 mb-6">
-              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 border border-emerald-500/50 flex items-center justify-center font-black text-emerald-400 text-sm">
-                Z
-              </div>
-              <span className="font-bold text-white">Zyntax AI</span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                {selectedVersion}
+      <main className="flex-1">
+        {/* 2. HERO SECTION + INTERACTIVE "CALL ME NOW" LIVE DEMO WIDGET */}
+        <section className="max-w-7xl mx-auto px-6 pt-14 pb-20 grid lg:grid-cols-12 gap-12 items-center">
+          {/* Left Hero Copy (7 cols) */}
+          <div className="lg:col-span-7">
+            <div className="inline-flex items-center space-x-2 bg-[#111827] border border-emerald-500/30 px-3.5 py-1.5 rounded-full mb-6">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="text-xs font-semibold text-emerald-400 uppercase tracking-wider">
+                24/7 AI Receptionist &amp; Missed-Call Recovery
               </span>
             </div>
 
-            <h3 className="text-2xl font-black text-white mb-1">
-              {authMode === "signup" ? "Create your workspace" : "Welcome back"}
-            </h3>
-            <p className="text-xs text-slate-400 mb-6">
-              {authMode === "signup"
-                ? "Deploy your AI receptionist and automate missed-call recovery."
-                : "Sign in to access your Zyntax AI telemetry and voice workflows."}
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.1] mb-6">
+              Stop Losing High-Ticket Patients &amp; Leads to{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-cyan-400">
+                Voicemail.
+              </span>
+            </h1>
+
+            <p className="text-lg text-slate-400 mb-8 max-w-2xl leading-relaxed">
+              Zyntax AI answers missed calls in sub-500ms, qualifies urgency, books appointments directly onto your calendar, and fires an instant SMS confirmation—before callers dial your competitor.
             </p>
 
-            {/* Social OAuth Buttons */}
-            <div className="grid grid-cols-2 gap-3 mb-5">
-              <button
-                type="button"
-                onClick={() => handleSocialAuth("Google")}
-                className="flex items-center justify-center space-x-2 bg-[#0B0F19] hover:bg-[#1F2937] border border-[#1F2937] text-white py-2.5 px-4 rounded-xl text-xs font-semibold transition"
+            {/* Primary & Secondary Hero CTAs */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 mb-10">
+              <a
+                href="/signup"
+                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-base px-8 py-4 rounded-xl transition flex items-center justify-center space-x-2 shadow-xl shadow-emerald-500/25"
               >
-                <span className="text-sm font-black text-emerald-400">G</span>
-                <span>Continue with Google</span>
-              </button>
+                <span>Start 7-Day Free Pilot</span>
+                <ArrowRight className="w-5 h-5" />
+              </a>
 
-              <button
-                type="button"
-                onClick={() => handleSocialAuth("Facebook")}
-                className="flex items-center justify-center space-x-2 bg-[#0B0F19] hover:bg-[#1F2937] border border-[#1F2937] text-white py-2.5 px-4 rounded-xl text-xs font-semibold transition"
+              <a
+                href="/login"
+                className="bg-[#111827] hover:bg-[#1F2937] border border-[#1F2937] text-slate-200 font-semibold text-base px-7 py-4 rounded-xl transition flex items-center justify-center space-x-2"
               >
-                <span className="text-sm font-black text-cyan-400">f</span>
-                <span>Facebook</span>
-              </button>
+                <span>Sign In to Dashboard</span>
+              </a>
             </div>
 
-            <div className="relative flex py-2 items-center mb-5">
-              <div className="flex-grow border-t border-[#1F2937]"></div>
-              <span className="flex-shrink mx-3 text-[11px] text-slate-500 uppercase font-mono">or with email</span>
-              <div className="flex-grow border-t border-[#1F2937]"></div>
+            {/* Key Value Props */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-6 border-t border-[#1F2937] text-xs text-slate-300">
+              <div className="flex items-center space-x-2">
+                <Zap className="w-4 h-4 text-emerald-400 shrink-0" />
+                <span>Answers in &lt; 0.5 Seconds</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Calendar className="w-4 h-4 text-cyan-400 shrink-0" />
+                <span>Direct Calendar &amp; SMS Sync</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>Setup in Under 10 Minutes</span>
+              </div>
             </div>
+          </div>
 
-            {/* Email & Password Form */}
-            <form onSubmit={handleEmailAuth} className="space-y-3.5">
-              {authMode === "signup" && (
+          {/* Right: Interactive "Call Me Now" Live Demo Widget (#live-demo) (5 cols) */}
+          <div id="live-demo" className="lg:col-span-5 relative scroll-mt-24">
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/25 to-cyan-500/25 rounded-2xl blur-xl opacity-80"></div>
+            <div className="relative bg-[#111827] border border-[#1F2937] rounded-2xl p-6 sm:p-7 shadow-2xl">
+              <div className="flex items-center justify-between pb-4 border-b border-[#1F2937] mb-5">
+                <div className="flex items-center space-x-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                    <PhoneOutgoing className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-sm text-white">Test Live AI Call Now</h2>
+                    <p className="text-[11px] text-slate-400">Experience Zyntax AI on your own phone</p>
+                  </div>
+                </div>
+                <span className="inline-flex items-center space-x-1.5 text-[10px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-1 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>LIVE ENGINE</span>
+                </span>
+              </div>
+
+              <form onSubmit={handleTriggerDemoCall} className="space-y-4">
+                {/* Niche Selector Pills */}
                 <div>
-                  <label className="block text-[11px] font-medium text-slate-400 mb-1">Full Name</label>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                    1. Choose Industry Persona
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(["dental", "realestate", "consulting"] as NicheType[]).map((niche) => (
+                      <button
+                        type="button"
+                        key={niche}
+                        onClick={() => setDemoNiche(niche)}
+                        className={`py-2 px-2.5 rounded-xl text-xs font-semibold border transition text-center ${
+                          demoNiche === niche
+                            ? "bg-emerald-500/15 border-emerald-500 text-emerald-300"
+                            : "bg-[#0B0F19] border-[#1F2937] text-slate-400 hover:border-slate-700"
+                        }`}
+                      >
+                        {niche === "dental"
+                          ? "Dental"
+                          : niche === "realestate"
+                          ? "Real Estate"
+                          : "Consulting"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Phone Number Input */}
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-2">
+                    2. Enter Your Mobile Number
+                  </label>
                   <div className="relative">
-                    <User className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
+                    <PhoneCall className="w-4 h-4 text-slate-500 absolute left-3.5 top-3" />
                     <input
-                      type="text"
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      placeholder="Enter your name"
-                      className="w-full bg-[#0B0F19] border border-[#1F2937] focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
+                      type="tel"
+                      value={demoPhone}
+                      onChange={(e) => setDemoPhone(e.target.value)}
+                      placeholder="+1 (512) 555-0199"
+                      className="w-full bg-[#0B0F19] border border-[#1F2937] focus:border-emerald-500 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-600 font-mono focus:outline-none"
                     />
                   </div>
                 </div>
-              )}
 
-              <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">Work Email</label>
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                  <input
-                    type="email"
-                    required
-                    value={userEmail}
-                    onChange={(e) => setUserEmail(e.target.value)}
-                    placeholder="you@company.com"
-                    className="w-full bg-[#0B0F19] border border-[#1F2937] focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
-                  />
-                </div>
-              </div>
+                <button
+                  type="submit"
+                  disabled={isTriggeringCall}
+                  className="w-full bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 disabled:opacity-60 text-slate-950 font-extrabold py-3.5 rounded-xl text-sm transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
+                >
+                  {isTriggeringCall ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Dialing Your Phone...</span>
+                    </>
+                  ) : (
+                    <>
+                      <PhoneCall className="w-4 h-4" />
+                      <span>Test Live AI Call</span>
+                    </>
+                  )}
+                </button>
 
-              <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">Password</label>
-                <div className="relative">
-                  <Lock className="w-4 h-4 text-slate-500 absolute left-3 top-2.5" />
-                  <input
-                    type="password"
-                    required
-                    value={userPassword}
-                    onChange={(e) => setUserPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-[#0B0F19] border border-[#1F2937] focus:border-emerald-500 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-emerald-500/20 mt-2"
-              >
-                {authMode === "signup" ? "Create Account & Continue" : "Sign In to Workspace"}
-              </button>
-            </form>
-
-            <div className="text-center mt-5 text-xs text-slate-400">
-              {authMode === "signup" ? (
-                <>
-                  Already have an account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode("login")}
-                    className="text-emerald-400 font-semibold hover:underline"
+                {callFeedback && (
+                  <div
+                    className={`p-3 rounded-xl text-xs border ${
+                      callFeedback.type === "success"
+                        ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-300"
+                        : "bg-red-950/40 border-red-500/40 text-red-300"
+                    }`}
                   >
-                    Log in
-                  </button>
-                </>
-              ) : (
-                <>
-                  Don&apos;t have an account?{" "}
-                  <button
-                    type="button"
-                    onClick={() => setAuthMode("signup")}
-                    className="text-emerald-400 font-semibold hover:underline"
-                  >
-                    Sign up
-                  </button>
-                </>
-              )}
+                    {callFeedback.text}
+                  </div>
+                )}
+              </form>
+
+              <p className="text-[11px] text-slate-500 text-center mt-4">
+                Zero spam. Instant 45-second interactive voice AI call demo.
+              </p>
             </div>
           </div>
-        </div>
-      )}
+        </section>
 
-      {/* Clean Corporate Footer */}
-      <footer className="border-t border-[#1F2937] bg-[#0B0F19] py-6 px-6 mt-auto">
+        {/* 3. TRUST & COMPLIANCE BAR */}
+        <section className="border-y border-[#1F2937] bg-[#111827]/60 py-6 px-6">
+          <div className="max-w-7xl mx-auto flex flex-wrap items-center justify-center md:justify-between gap-6 text-xs font-semibold text-slate-300">
+            <div className="flex items-center space-x-2.5">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              <span>HIPAA-Aligned Data Encryption</span>
+            </div>
+            <div className="flex items-center space-x-2.5">
+              <FileCheck2 className="w-5 h-5 text-cyan-400" />
+              <span>TCPA &amp; A2P 10DLC Compliant SMS</span>
+            </div>
+            <div className="flex items-center space-x-2.5">
+              <Calendar className="w-5 h-5 text-emerald-400" />
+              <span>Google Calendar, Dentrix &amp; CRM Ready</span>
+            </div>
+            <div className="flex items-center space-x-2.5">
+              <Lock className="w-5 h-5 text-amber-400" />
+              <span>SOC-2 Isolated Tenant Architecture</span>
+            </div>
+          </div>
+        </section>
+
+        {/* 4. REAL PLAYABLE AUDIO RECORDINGS (3 INDUSTRY SCENARIOS) */}
+        <section className="max-w-7xl mx-auto px-6 py-20">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <span className="text-cyan-400 text-xs font-mono font-bold uppercase tracking-wider bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
+              Real Call Scenarios
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mt-4 mb-3">
+              Hear How Zyntax Closes Missed Calls
+            </h2>
+            <p className="text-sm text-slate-400">
+              Click play on any real-world call scenario to inspect how Zyntax AI handles urgency, qualifies intent, and books the appointment.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-6">
+            {DEMO_RECORDINGS.map((rec) => {
+              const isPlaying = playingScenarioId === rec.id;
+              return (
+                <div
+                  key={rec.id}
+                  className={`bg-[#111827] border rounded-2xl p-6 flex flex-col justify-between transition ${
+                    isPlaying
+                      ? "border-cyan-400 shadow-lg shadow-cyan-500/10"
+                      : "border-[#1F2937] hover:border-slate-700"
+                  }`}
+                >
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[11px] font-mono font-semibold text-cyan-400 bg-cyan-500/10 border border-cyan-500/20 px-2.5 py-1 rounded-full">
+                        {rec.badge}
+                      </span>
+                      <span className="text-xs font-mono text-slate-500">{rec.duration}</span>
+                    </div>
+
+                    <h3 className="font-bold text-base text-white mb-4">{rec.title}</h3>
+
+                    {/* Audio Waveform Player */}
+                    <div className="bg-[#0B0F19] border border-[#1F2937] rounded-xl p-3 flex items-center space-x-3 mb-5">
+                      <button
+                        type="button"
+                        onClick={() => toggleScenarioPlayback(rec.id)}
+                        className="w-9 h-9 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 flex items-center justify-center shrink-0 transition"
+                        aria-label={`Play ${rec.title}`}
+                      >
+                        {isPlaying ? (
+                          <Pause className="w-4 h-4 fill-slate-950" />
+                        ) : (
+                          <Play className="w-4 h-4 fill-slate-950 ml-0.5" />
+                        )}
+                      </button>
+
+                      <div className="flex-1 flex items-center space-x-1 h-7">
+                        {[35, 75, 50, 90, 60, 40, 85, 70, 45, 95, 55, 65, 80, 40].map((bar, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex-1 rounded-full transition-all duration-300 ${
+                              isPlaying ? "bg-cyan-400 animate-pulse" : "bg-slate-700"
+                            }`}
+                            style={{ height: isPlaying ? `${bar}%` : "30%" }}
+                          ></div>
+                        ))}
+                      </div>
+
+                      <Volume2 className={`w-4 h-4 ${isPlaying ? "text-cyan-400" : "text-slate-600"}`} />
+                    </div>
+
+                    {/* Transcript Snippet */}
+                    <div className="space-y-2.5 text-xs mb-5">
+                      <div className="bg-[#0B0F19] p-3 rounded-xl border border-[#1F2937] text-slate-300">
+                        <span className="text-[10px] font-mono text-slate-500 block mb-0.5">Caller</span>
+                        &quot;{rec.callerLine}&quot;
+                      </div>
+                      <div className="bg-emerald-950/25 p-3 rounded-xl border border-emerald-500/30 text-emerald-100">
+                        <span className="text-[10px] font-mono text-emerald-400 flex items-center gap-1 mb-0.5">
+                          <Bot className="w-3 h-3" /> Zyntax AI
+                        </span>
+                        &quot;{rec.aiLine}&quot;
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-[#1F2937] flex items-center space-x-2 text-xs font-semibold text-emerald-400">
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>{rec.outcome}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* 5. NICHE SWITCHER + MISSED-CALL ROI CALCULATOR */}
+        <section
+          id="roi-calculator"
+          className="border-t border-[#1F2937] bg-[#0D1322] py-20 px-6 scroll-mt-20"
+        >
+          <div className="max-w-5xl mx-auto">
+            <div className="text-center max-w-2xl mx-auto mb-12">
+              <span className="text-amber-400 text-xs font-mono font-bold uppercase tracking-wider bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 inline-flex items-center gap-1.5">
+                <Calculator className="w-3.5 h-3.5" /> Missed-Call Revenue Leak Calculator
+              </span>
+              <h2 className="text-3xl sm:text-4xl font-black text-white mt-4 mb-3">
+                How Much Revenue Are Missed Calls Costing You?
+              </h2>
+              <p className="text-sm text-slate-400">
+                85% of callers who hit voicemail hang up without leaving a message and call the next listing on Google.
+              </p>
+            </div>
+
+            <div className="bg-[#111827] border border-[#1F2937] rounded-2xl p-6 sm:p-10 shadow-2xl">
+              {/* 3 Niche Tabs */}
+              <div className="grid grid-cols-3 gap-3 bg-[#0B0F19] p-1.5 rounded-xl border border-[#1F2937] mb-8">
+                <button
+                  type="button"
+                  onClick={() => handleRoiNicheSwitch("dental")}
+                  className={`py-3 px-4 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                    roiNiche === "dental"
+                      ? "bg-emerald-500 text-slate-950 shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Stethoscope className="w-4 h-4" />
+                  <span>Dental Clinic</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRoiNicheSwitch("realestate")}
+                  className={`py-3 px-4 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                    roiNiche === "realestate"
+                      ? "bg-emerald-500 text-slate-950 shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Building2 className="w-4 h-4" />
+                  <span>Real Estate</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleRoiNicheSwitch("consulting")}
+                  className={`py-3 px-4 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition ${
+                    roiNiche === "consulting"
+                      ? "bg-emerald-500 text-slate-950 shadow-md"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Briefcase className="w-4 h-4" />
+                  <span>Consulting</span>
+                </button>
+              </div>
+
+              <div className="grid lg:grid-cols-12 gap-8 items-center">
+                {/* Left: Slider & Formula Breakdown (7 cols) */}
+                <div className="lg:col-span-7 space-y-6">
+                  <div>
+                    <div className="flex justify-between items-center mb-3">
+                      <label className="text-sm font-semibold text-slate-200">
+                        Missed calls per week:
+                      </label>
+                      <span className="text-2xl font-black font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-3.5 py-1 rounded-lg">
+                        {missedPerWeek} calls/wk
+                      </span>
+                    </div>
+
+                    <input
+                      type="range"
+                      min={2}
+                      max={50}
+                      value={missedPerWeek}
+                      onChange={(e) => setMissedPerWeek(Number(e.target.value))}
+                      className="w-full h-2.5 bg-[#0B0F19] rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                    />
+                    <div className="flex justify-between text-[11px] font-mono text-slate-500 mt-2">
+                      <span>2 / wk</span>
+                      <span>25 / wk</span>
+                      <span>50 / wk</span>
+                    </div>
+                  </div>
+
+                  {/* Transparent Formula Breakdown */}
+                  <div className="bg-[#0B0F19] border border-[#1F2937] rounded-xl p-4 space-y-2.5 text-xs">
+                    <div className="flex justify-between text-slate-400">
+                      <span>Monthly Missed Calls ({missedPerWeek}/wk × 4):</span>
+                      <span className="font-mono font-bold text-white">{monthlyMissedCalls} calls/mo</span>
+                    </div>
+                    <div className="flex justify-between text-slate-400">
+                      <span>{activeRoiConfig.unitLabel}:</span>
+                      <span className="font-mono font-bold text-white">
+                        ${activeRoiConfig.avgTicket.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between text-slate-400 pt-2 border-t border-[#1F2937]">
+                      <span>Supported Integrations:</span>
+                      <span className="text-cyan-400 font-medium">{activeRoiConfig.crmLabel}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right: Lost vs Recovered Revenue Card (5 cols) */}
+                <div className="lg:col-span-5 bg-[#0B0F19] border border-[#1F2937] rounded-2xl p-6 space-y-5">
+                  <div>
+                    <div className="text-xs uppercase font-bold tracking-wider text-amber-400 mb-1">
+                      Estimated Monthly Lost Revenue
+                    </div>
+                    <div className="text-3xl sm:text-4xl font-black font-mono text-amber-400">
+                      ${monthlyLostRevenue.toLocaleString()}
+                      <span className="text-xs font-normal text-slate-400">/mo</span>
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-emerald-950/35 border border-emerald-500/40">
+                    <div className="text-xs uppercase font-bold tracking-wider text-emerald-400 mb-1">
+                      Recoverable with Zyntax AI (65%)
+                    </div>
+                    <div className="text-3xl font-black font-mono text-emerald-400">
+                      +${estimatedRecoveredRevenue.toLocaleString()}
+                      <span className="text-xs font-normal text-emerald-200/70">/mo</span>
+                    </div>
+                    <div className="text-[11px] text-emerald-200/80 mt-1">
+                      {Math.round(estimatedRecoveredRevenue / 299)}x ROI on your $299/mo subscription
+                    </div>
+                  </div>
+
+                  <a
+                    href="/signup"
+                    className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs sm:text-sm transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
+                  >
+                    <span>Recover This Revenue — Start Pilot</span>
+                    <ArrowRight className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 6. TRANSPARENT PILOT PRICING SECTION ($299/MONTH) */}
+        <section id="pricing" className="max-w-4xl mx-auto px-6 py-24 scroll-mt-20">
+          <div className="text-center max-w-xl mx-auto mb-12">
+            <span className="text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+              Simple, Transparent Pricing
+            </span>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mt-4 mb-3">
+              One Flat Plan. Zero Setup Fees for Beta Clinics.
+            </h2>
+            <p className="text-sm text-slate-400">
+              Test Zyntax AI on your real clinic or agency phone line for 7 days before paying a single dollar.
+            </p>
+          </div>
+
+          <div className="relative">
+            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 rounded-3xl blur-xl opacity-75"></div>
+            <div className="relative bg-[#111827] border-2 border-emerald-500/50 rounded-3xl p-8 sm:p-10 shadow-2xl">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-[#1F2937]">
+                <div>
+                  <div className="inline-flex items-center space-x-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full mb-3">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>7-Day Risk-Free Pilot • Setup Fee Waived ($500 Value)</span>
+                  </div>
+                  <h3 className="text-2xl font-black text-white">Zyntax AI Receptionist Pro</h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    Full autonomous call handling, SMS recovery, and calendar booking engine.
+                  </p>
+                </div>
+
+                <div className="text-left md:text-right shrink-0">
+                  <div className="text-5xl font-black text-white font-mono">
+                    $299
+                    <span className="text-base font-normal text-slate-400">/month</span>
+                  </div>
+                  <div className="text-xs text-emerald-400 font-semibold mt-1">
+                    $0 due today • Cancel anytime in 1 click
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid sm:grid-cols-2 gap-4 py-8 text-sm text-slate-200">
+                {[
+                  "24/7 Sub-500ms AI Voice Receptionist",
+                  "Dedicated Local Twilio Forwarding Number",
+                  "Automated Missed-Call SMS Recovery",
+                  "Direct Google Calendar & CRM Booking Sync",
+                  "Live Call Transcripts, Recordings & AI Triage",
+                  "Instant Live Human Takeover Toggle"
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center space-x-3">
+                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                      <Check className="w-3 h-3 stroke-[3]" />
+                    </div>
+                    <span className="text-xs sm:text-sm">{item}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
+                <a
+                  href="/signup"
+                  className="w-full sm:w-auto flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-base px-8 py-4 rounded-xl transition flex items-center justify-center space-x-2 shadow-xl shadow-emerald-500/25"
+                >
+                  <span>Start 7-Day Free Pilot</span>
+                  <ArrowRight className="w-5 h-5" />
+                </a>
+                <a
+                  href="#live-demo"
+                  className="w-full sm:w-auto bg-[#0B0F19] hover:bg-[#1F2937] border border-[#1F2937] text-slate-300 font-semibold text-sm px-6 py-4 rounded-xl transition text-center"
+                >
+                  Test Live Call First
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+
+      {/* CLEAN CORPORATE FOOTER */}
+      <footer className="border-t border-[#1F2937] bg-[#0B0F19] py-8 px-6">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2.5">
+            <div className="w-6 h-6 rounded bg-emerald-500/10 border border-emerald-500/40 flex items-center justify-center font-black text-emerald-400 text-xs">
+              Z
+            </div>
             <span className="font-bold text-slate-300">Zyntax AI</span>
             <span>•</span>
-            <span className="font-mono text-emerald-400/80">{selectedVersion}</span>
+            <span className="font-mono text-emerald-400/80">v2.0 Beta</span>
           </div>
           <div>© {new Date().getFullYear()} Zyntax AI. All rights reserved.</div>
         </div>
