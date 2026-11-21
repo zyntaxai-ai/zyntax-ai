@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// In-memory 24-hour rate limit store (Use Redis/Upstash in multi-instance scale)
 const rateLimitStore = new Map<string, number>();
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -11,8 +10,6 @@ function cleanupExpiredLimits() {
       rateLimitStore.delete(key);
     }
   });
-}
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -28,7 +25,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Normalize phone & extract client IP
     const normalizedPhone = phoneNumber.replace(/[^\d+]/g, "");
     const forwardedFor = req.headers.get("x-forwarded-for");
     const clientIp = forwardedFor ? forwardedFor.split(",")[0].trim() : "unknown-ip";
@@ -37,7 +33,6 @@ export async function POST(req: NextRequest) {
     const ipKey = `ip:${clientIp}`;
     const now = Date.now();
 
-    // Check 24-hour Guardrail (1 call per phone number & max 2 per IP per 24h)
     const lastPhoneCall = rateLimitStore.get(phoneKey);
     if (lastPhoneCall && now - lastPhoneCall < TWENTY_FOUR_HOURS_MS) {
       return NextResponse.json(
@@ -60,7 +55,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Record timestamp before dispatching call
     rateLimitStore.set(phoneKey, now);
     if (clientIp !== "unknown-ip") {
       rateLimitStore.set(ipKey, now);
@@ -78,7 +72,6 @@ export async function POST(req: NextRequest) {
 
     const spokenText = scripts[selectedNiche] || scripts.dental;
 
-    // Real Twilio Outbound Call (Triggers when TWILIO env vars are set in Vercel)
     if (
       process.env.TWILIO_ACCOUNT_SID &&
       process.env.TWILIO_AUTH_TOKEN &&
@@ -106,7 +99,6 @@ export async function POST(req: NextRequest) {
 
       if (!res.ok) {
         const errData = await res.json();
-        // Rollback rate limit if Twilio rejected the number format
         rateLimitStore.delete(phoneKey);
         return NextResponse.json(
           { error: errData.message || "Twilio could not dial this number. Include country code (e.g. +1)." },
@@ -121,13 +113,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Staging fallback when Twilio keys are not configured yet
     return NextResponse.json({
       success: true,
       mode: "simulation",
       message: `Demo call queued for ${normalizedPhone} (${selectedNiche} agent). Add TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN & TWILIO_PHONE_NUMBER in Vercel to dial real phones.`
     });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to process demo call request." },
       { status: 500 }
