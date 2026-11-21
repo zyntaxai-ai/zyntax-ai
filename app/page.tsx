@@ -679,83 +679,184 @@ export default function ZyntaxLandingPage() {
           </div>
         </section>
 
-        {/* 6. TRANSPARENT PILOT PRICING SECTION ($299/MONTH) */}
-        <section id="pricing" className="max-w-4xl mx-auto px-6 py-24 scroll-mt-20">
-          <div className="text-center max-w-xl mx-auto mb-12">
+       {/* 6. 4-TIER SAAS PRICING SECTION ($199 / $299 / $599 / CUSTOM) */}
+        <section id="pricing" className="max-w-7xl mx-auto px-6 py-24 scroll-mt-20">
+          <div className="text-center max-w-2xl mx-auto mb-14">
             <span className="text-emerald-400 text-xs font-mono font-bold uppercase tracking-wider bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              Simple, Transparent Pricing
+              Flexible Plans for Every Stage
             </span>
             <h2 className="text-3xl sm:text-4xl font-black text-white mt-4 mb-3">
-              One Flat Plan. Zero Setup Fees for Beta Clinics.
+              Predictable Pricing That Pays for Itself
             </h2>
             <p className="text-sm text-slate-400">
-              Test Zyntax AI on your real clinic or agency phone line for 7 days before paying a single dollar.
+              Start with a 7-Day Risk-Free Pilot on any standard plan. Upgrade, downgrade, or cancel anytime in 1 click.
             </p>
           </div>
 
-          <div className="relative">
-            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500/30 to-cyan-500/30 rounded-3xl blur-xl opacity-75"></div>
-            <div className="relative bg-[#111827] border-2 border-emerald-500/50 rounded-3xl p-8 sm:p-10 shadow-2xl">
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-8 border-b border-[#1F2937]">
-                <div>
-                  <div className="inline-flex items-center space-x-2 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-xs font-bold px-3 py-1 rounded-full mb-3">
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>7-Day Risk-Free Pilot • Setup Fee Waived ($500 Value)</span>
-                  </div>
-                  <h3 className="text-2xl font-black text-white">Zyntax AI Receptionist Pro</h3>
-                  <p className="text-xs text-slate-400 mt-1">
-                    Full autonomous call handling, SMS recovery, and calendar booking engine.
-                  </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch">
+            {/* PLAN 1: $199/mo */}
+            <div className="bg-[#111827] border border-[#1F2937] hover:border-slate-700 rounded-2xl p-6 flex flex-col justify-between transition">
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-slate-400 mb-2">
+                  Starter
                 </div>
-
-                <div className="text-left md:text-right shrink-0">
-                  <div className="text-5xl font-black text-white font-mono">
-                    $299
-                    <span className="text-base font-normal text-slate-400">/month</span>
-                  </div>
-                  <div className="text-xs text-emerald-400 font-semibold mt-1">
-                    $0 due today • Cancel anytime in 1 click
-                  </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl font-black text-white font-mono">$199</span>
+                  <span className="text-xs text-slate-400">/month</span>
                 </div>
+                <p className="text-xs text-slate-400 mb-6">
+                  Essential after-hours and missed-call capture for solo practitioners.
+                </p>
+
+                <ul className="space-y-3 text-xs text-slate-300 mb-8">
+                  {[
+                    "Up to 150 AI Voice Minutes/mo",
+                    "1 Dedicated Local Twilio Number",
+                    "Instant Missed-Call SMS Follow-Up",
+                    "Google Calendar Booking Sync",
+                    "Call Transcripts & Email Alerts"
+                  ].map((feat, i) => (
+                    <li key={i} className="flex items-start space-x-2.5">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
-              <div className="grid sm:grid-cols-2 gap-4 py-8 text-sm text-slate-200">
-                {[
-                  "24/7 Sub-500ms AI Voice Receptionist",
-                  "Dedicated Local Twilio Forwarding Number",
-                  "Automated Missed-Call SMS Recovery",
-                  "Direct Google Calendar & CRM Booking Sync",
-                  "Live Call Transcripts, Recordings & AI Triage",
-                  "Instant Live Human Takeover Toggle"
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center space-x-3">
-                    <div className="w-5 h-5 rounded-full bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
-                      <Check className="w-3 h-3 stroke-[3]" />
-                    </div>
-                    <span className="text-xs sm:text-sm">{item}</span>
-                  </div>
-                ))}
+              <a
+                href="/signup?plan=starter"
+                className="w-full bg-[#0B0F19] hover:bg-[#1F2937] border border-[#1F2937] text-white font-bold py-3 rounded-xl text-xs transition flex items-center justify-center space-x-1.5"
+              >
+                <span>Start 7-Day Pilot</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+            {/* PLAN 2: $299/mo (MOST POPULAR - HIGHLIGHTED) */}
+            <div className="relative bg-[#111827] border-2 border-emerald-500 rounded-2xl p-6 flex flex-col justify-between shadow-2xl shadow-emerald-500/15">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-emerald-500 text-slate-950 text-[10px] font-black uppercase tracking-wider px-3 py-1 rounded-full shadow">
+                Most Popular
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4">
-                <a
-                  href="/signup"
-                  className="w-full sm:w-auto flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-base px-8 py-4 rounded-xl transition flex items-center justify-center space-x-2 shadow-xl shadow-emerald-500/25"
-                >
-                  <span>Start 7-Day Free Pilot</span>
-                  <ArrowRight className="w-5 h-5" />
-                </a>
-                <a
-                  href="#live-demo"
-                  className="w-full sm:w-auto bg-[#0B0F19] hover:bg-[#1F2937] border border-[#1F2937] text-slate-300 font-semibold text-sm px-6 py-4 rounded-xl transition text-center"
-                >
-                  Test Live Call First
-                </a>
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-emerald-400 mb-2">
+                  Growth Pro
+                </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl font-black text-white font-mono">$299</span>
+                  <span className="text-xs text-slate-400">/month</span>
+                </div>
+                <p className="text-xs text-slate-400 mb-6">
+                  Full 24/7 AI receptionist &amp; CRM recovery engine for busy clinics &amp; teams.
+                </p>
+
+                <ul className="space-y-3 text-xs text-slate-200 mb-8">
+                  {[
+                    "Up to 500 AI Voice Minutes/mo",
+                    "Sub-500ms Custom Voice Persona",
+                    "2-Way Automated SMS & Rescheduling",
+                    "Dentrix, HubSpot & CRM Sync",
+                    "Live Human Takeover Switch",
+                    "Setup Fee Waived ($500 Value)"
+                  ].map((feat, i) => (
+                    <li key={i} className="flex items-start space-x-2.5">
+                      <Check className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
               </div>
+
+              <a
+                href="/signup?plan=growth"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs transition flex items-center justify-center space-x-1.5 shadow-lg shadow-emerald-500/25"
+              >
+                <span>Start 7-Day Free Pilot</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+            {/* PLAN 3: $599/mo */}
+            <div className="bg-[#111827] border border-[#1F2937] hover:border-cyan-500/40 rounded-2xl p-6 flex flex-col justify-between transition">
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-cyan-400 mb-2">
+                  Scale Multi-Line
+                </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl font-black text-white font-mono">$599</span>
+                  <span className="text-xs text-slate-400">/month</span>
+                </div>
+                <p className="text-xs text-slate-400 mb-6">
+                  High-volume call concurrency &amp; multi-location routing for growing firms.
+                </p>
+
+                <ul className="space-y-3 text-xs text-slate-300 mb-8">
+                  {[
+                    "1,500 AI Voice Minutes/mo",
+                    "Up to 5 Concurrent Call Lines",
+                    "Multi-Language Auto-Detection",
+                    "Custom Make.com & API Webhooks",
+                    "Outbound Missed-Lead Callbacks",
+                    "Priority Slack & Phone Support"
+                  ].map((feat, i) => (
+                    <li key={i} className="flex items-start space-x-2.5">
+                      <Check className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <a
+                href="/signup?plan=scale"
+                className="w-full bg-[#0B0F19] hover:bg-[#1F2937] border border-cyan-500/40 text-cyan-300 font-bold py-3 rounded-xl text-xs transition flex items-center justify-center space-x-1.5"
+              >
+                <span>Start 7-Day Pilot</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
+            </div>
+
+            {/* PLAN 4: CUSTOM ENTERPRISE */}
+            <div className="bg-gradient-to-b from-[#111827] to-[#0D1322] border border-[#1F2937] hover:border-amber-500/40 rounded-2xl p-6 flex flex-col justify-between transition">
+              <div>
+                <div className="text-xs font-mono uppercase tracking-wider text-amber-400 mb-2">
+                  Enterprise
+                </div>
+                <div className="flex items-baseline gap-1 mb-2">
+                  <span className="text-4xl font-black text-white font-mono">Custom</span>
+                </div>
+                <p className="text-xs text-slate-400 mb-6">
+                  Tailored infrastructure for DSOs, real estate brokerages, and call centers.
+                </p>
+
+                <ul className="space-y-3 text-xs text-slate-300 mb-8">
+                  {[
+                    "Unlimited Minutes & Concurrent Calls",
+                    "Custom Voice Cloning & SIP Trunking",
+                    "HIPAA BAA & Dedicated Isolation",
+                    "Custom ERP / EHR Deep Integration",
+                    "White-Label Agency Dashboard",
+                    "Dedicated Solutions Engineer"
+                  ].map((feat, i) => (
+                    <li key={i} className="flex items-start space-x-2.5">
+                      <Check className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                      <span>{feat}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <a
+                href="#live-demo"
+                className="w-full bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/40 text-amber-300 font-bold py-3 rounded-xl text-xs transition flex items-center justify-center space-x-1.5"
+              >
+                <span>Book Custom Demo</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </a>
             </div>
           </div>
         </section>
-      </main>
 
       {/* CLEAN CORPORATE FOOTER */}
       <footer className="border-t border-[#1F2937] bg-[#0B0F19] py-8 px-6">
