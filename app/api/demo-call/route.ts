@@ -6,10 +6,12 @@ const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
 function cleanupExpiredLimits() {
   const now = Date.now();
-  for (const [key, timestamp] of rateLimitStore.entries()) {
+  rateLimitStore.forEach((timestamp, key) => {
     if (now - timestamp > TWENTY_FOUR_HOURS_MS) {
       rateLimitStore.delete(key);
     }
+  });
+}
   }
 }
 
