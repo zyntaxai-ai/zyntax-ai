@@ -9,8 +9,10 @@ import {
   Check,
   ArrowRight,
   PhoneCall,
-  Building
+  Building,
+  Loader2
 } from "lucide-react";
+import { supabase, isSupabaseConfigured } from "@/lib/supabase";
 
 type NicheType = "dental" | "realestate" | "consulting";
 
@@ -19,6 +21,7 @@ export default function OnboardingPage() {
   const [niche, setNiche] = useState<NicheType>("dental");
   const [businessName, setBusinessName] = useState("Austin Family Dental");
   const [forwardingPhone, setForwardingPhone] = useState("+1 (512) 849-3921");
+  const [saving, setSaving] = useState(false);
 
   const handleNicheChange = (selected: NicheType) => {
     setNiche(selected);
@@ -27,20 +30,36 @@ export default function OnboardingPage() {
     if (selected === "consulting") setBusinessName("Apex Growth Advisory");
   };
 
-  const handleCompleteOnboarding = (e: React.FormEvent) => {
+  const handleCompleteOnboarding = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSaving(true);
     const avgTicket = niche === "dental" ? 250 : niche === "realestate" ? 5000 : 1500;
 
-    localStorage.setItem(
-      "zyntax_tenant",
-      JSON.stringify({
-        niche,
-        businessName,
-        forwardingPhone,
-        avgTicket
-      })
-    );
-    router.push("/dashboard");
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const {
+          data: { user }
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          await supabase.from("tenants").insert({
+            user_id: user.id,
+            business_name: businessName,
+            niche,
+            forwarding_phone: forwardingPhone,
+            avg_ticket: avgTicket
+          });
+        }
+      }
+
+      localStorage.setItem(
+        "zyntax_tenant",
+        JSON.stringify({ niche, businessName, forwardingPhone, avgTicket })
+      );
+      router.push("/dashboard");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -151,10 +170,17 @@ export default function OnboardingPage() {
 
           <button
             type="submit"
+            disabled={saving}
             className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold py-3.5 rounded-xl text-sm transition flex items-center justify-center space-x-2 shadow-lg shadow-emerald-500/20"
           >
-            <span>Launch Live Telemetry Dashboard</span>
-            <ArrowRight className="w-4 h-4" />
+            {saving ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <span>Launch Live Telemetry Dashboard</span>
+                <ArrowRight className="w-4 h-4" />
+              </>
+            )}
           </button>
         </form>
       </div>
